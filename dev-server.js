@@ -6,7 +6,7 @@ const path = require("path");
 const url = require("url");
 
 const ROOT = path.resolve(process.argv[2] || __dirname);
-const PORT = Number(process.argv[3] || process.env.PORT || 3000);
+const PORT = Number(process.argv[3] || process.env.PORT || 3200);
 
 // `vercel dev` loads .env for you; this harness has to do it itself.
 const envFile = path.join(ROOT, ".env");

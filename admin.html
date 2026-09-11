@@ -67,8 +67,11 @@
   .editor{display:grid; grid-template-columns:minmax(280px,1fr) 280px; gap:18px; align-items:start;}
   @media (max-width:900px){ .editor{grid-template-columns:1fr;} .wrap{padding:16px;} }
   .canvas-wrap{border:1px solid var(--border); border-radius:var(--r-card); padding:12px; background:#fff;}
-  #stage{width:100%; max-width:480px; height:auto; display:block; margin:0 auto; touch-action:none; cursor:crosshair; border-radius:8px; background:#fff;}
-  #stage.dragging{cursor:grabbing;}
+  #stage{
+    width:100%; max-width:480px; height:auto; display:block; margin:0 auto;
+    touch-action:none; cursor:default; border-radius:8px; background:#fff;
+    user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+  }
   .side{display:flex; flex-direction:column; gap:12px; border:1px solid var(--border); border-radius:var(--r-card); padding:14px;}
   .side h2{font-size:13px; font-weight:600;}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
@@ -128,7 +131,7 @@
           <span><i style="background:#93c5fd;outline:1px solid #1d4ed8"></i>Designation</span>
           <span><i style="background:#fde68a;outline:1px solid #b45309"></i>Cover box</span>
         </div>
-        <p class="hint" style="margin-top:8px">Drag the photo circle onto the printed ring. Drag name and designation onto the printed lines. Cover boxes hide the artwork’s placeholder text when a field is filled.</p>
+        <p class="hint" style="margin-top:8px">Drag the photo circle onto the printed ring. Drag the name and designation lines onto the printed lines. Only the selected shape shows grab handles, so a click never grabs the wrong box. Cover boxes hide the artwork’s placeholder text when a field is filled.</p>
       </div>
       <aside class="side">
         <h2>Template</h2>
@@ -140,11 +143,11 @@
           <select id="alignSel"><option value="left">Left</option><option value="center">Center</option></select>
         </div>
         <div class="row2">
-          <div class="fld"><label for="nameSize">Name size</label><input id="nameSize" type="number" min="8" max="200"></div>
+          <div class="fld"><label for="nameSize">Name size</label><input id="nameSize" type="number" min="8" max="200" step="1"></div>
           <div class="fld"><label for="nameFill">Name colour</label><input id="nameFill" type="color"></div>
         </div>
         <div class="row2">
-          <div class="fld"><label for="desgSize">Designation size</label><input id="desgSize" type="number" min="8" max="200"></div>
+          <div class="fld"><label for="desgSize">Designation size</label><input id="desgSize" type="number" min="8" max="200" step="1"></div>
           <div class="fld"><label for="desgFill">Designation colour</label><input id="desgFill" type="color"></div>
         </div>
         <div class="row2">
@@ -152,6 +155,7 @@
           <button class="btn small" type="button" id="delCoverBtn">Remove cover</button>
         </div>
         <p class="hint" id="selHint">Click a shape on the artwork to select it. Arrow keys nudge 1px (Shift = 10px).</p>
+        <p class="hint">Name, designation and location share one text block — same left edge (or centre) and same maximum width, so the three lines always stay aligned.</p>
         <p class="hint" id="statusHint"></p>
         <button class="btn small" type="button" id="replaceImgBtn">Replace artwork</button>
         <input type="file" id="replaceFile" class="hide" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
@@ -325,6 +329,7 @@ function renderList(){
 function showList(){
   view = "list";
   draft = null;
+  drag = null;
   $("listView").classList.remove("hide");
   $("editView").classList.add("hide");
   $("newDrop").classList.add("hide");
@@ -373,11 +378,12 @@ async function openNewFromFile(file){
 
 function enterEditor(){
   view = "edit";
+  drag = null;
   $("listView").classList.add("hide");
   $("editView").classList.remove("hide");
   $("editTitle").textContent = draft.isNew ? "Place photo & name" : "Edit positions";
   $("labelInput").value = draft.label;
-  $("alignSel").value = draft.plate.align;
+  $("alignSel").value = draft.plate.align === "center" ? "center" : "left";
   $("nameSize").value = Math.round(draft.plate.name.size);
   $("desgSize").value = Math.round(draft.plate.desg.size);
   $("nameFill").value = toColor(draft.plate.name.fill);
@@ -396,98 +402,165 @@ function toColor(hex){
   return /^#[0-9a-f]{6}$/i.test(hex) ? hex : "#E10A1D";
 }
 
+/* ---------- plate <-> form ---------------------------------------------- */
+
+/* Sizes and colours are written straight into the plate by their own inputs,
+   so this only mirrors the fields that are read at save time. It never
+   re-reads a half-typed number box, which is what used to make the name and
+   designation lines jump while you were editing them. */
 function syncPlateFromForm(){
   if (!draft) return;
-  draft.label = $("labelInput").value.trim() || draft.label;
+  draft.label = $("labelInput").value.trim();
   draft.plate.align = $("alignSel").value === "center" ? "center" : "left";
-  draft.plate.name.size = ICS.clamp(Number($("nameSize").value) || draft.plate.name.size, 8, 200);
-  draft.plate.desg.size = ICS.clamp(Number($("desgSize").value) || draft.plate.desg.size, 8, 200);
-  draft.plate.name.fill = $("nameFill").value;
-  draft.plate.desg.fill = $("desgFill").value;
+  draft.plate.name.fill = toColor($("nameFill").value);
+  draft.plate.desg.fill = toColor($("desgFill").value);
   if ($("locToggle").checked) {
-    if (!draft.plate.loc) {
-      draft.plate.loc = {
-        baseline: draft.plate.desg.baseline + 36,
-        size: 24, weight: 500, fill: "#163B66",
-        font: ICS.DEFAULT_FONT, prefix: ""
-      };
-    }
-  } else delete draft.plate.loc;
+    if (!draft.plate.loc) draft.plate.loc = makeLocLine(draft.plate);
+  } else if (draft.plate.loc) {
+    delete draft.plate.loc;
+  }
   const paper = ICS.derivePaper(draft.plate, draft.image.width, draft.image.height);
   draft.plate.paperY = paper.paperY;
   draft.plate.paperMaxX = paper.paperMaxX;
   draft.plate = ICS.normalizePlate(draft.plate, draft.image.width, draft.image.height);
 }
 
-function nativeFromEvent(e){
-  const r = $("stage").getBoundingClientRect();
-  const img = draft.image;
+function makeLocLine(plate){
+  const d = plate.desg;
   return {
-    x: (e.clientX - r.left) * (img.width / r.width),
-    y: (e.clientY - r.top) * (img.height / r.height)
+    baseline: d.baseline + Math.max(26, d.size * 1.5),
+    size: Math.max(12, Math.round(d.size * 0.85)),
+    weight: 500,
+    fill: "#163B66",
+    font: ICS.DEFAULT_FONT,
+    prefix: ""
   };
 }
-function handleR(){
-  const r = $("stage").getBoundingClientRect();
-  return 10 * (draft.image.width / r.width);
+
+/* ---------- geometry helpers -------------------------------------------- */
+
+const IMG_IDS = new WeakMap();
+let imgSeq = 0;
+function imgId(img){
+  if (!IMG_IDS.has(img)) IMG_IDS.set(img, ++imgSeq);
+  return IMG_IDS.get(img);
 }
-function textBox(kind){
-  const p = draft.plate;
-  const spec = p[kind];
-  const h = spec.size * 1.25;
-  const y0 = spec.baseline - spec.size;
-  const y1 = spec.baseline + spec.size * 0.25;
-  if (p.align === "center") return { x0: p.textX - p.maxW / 2, y0, x1: p.textX + p.maxW / 2, y1, h };
-  return { x0: p.textX, y0, x1: p.textX + p.maxW, y1, h };
-}
-function inRect(x, y, b, pad){
+
+function boxOf(a){ return { x0:a[0], y0:a[1], x1:a[2], y1:a[3] }; }
+function arrOf(b){ return [b.x0, b.y0, b.x1, b.y1]; }
+function boxW(b){ return Math.max(0, b.x1 - b.x0); }
+function boxH(b){ return Math.max(0, b.y1 - b.y0); }
+function boxCenter(b){ return { x:(b.x0 + b.x1) / 2, y:(b.y0 + b.y1) / 2 }; }
+function pointIn(b, x, y, pad){
   pad = pad || 0;
   return x >= b.x0 - pad && x <= b.x1 + pad && y >= b.y0 - pad && y <= b.y1 + pad;
 }
-function handleHits(b, x, y, r){
-  const pts = [
-    { k: "nw", x: b.x0, y: b.y0 }, { k: "n", x: (b.x0 + b.x1) / 2, y: b.y0 },
-    { k: "ne", x: b.x1, y: b.y0 }, { k: "e", x: b.x1, y: (b.y0 + b.y1) / 2 },
-    { k: "se", x: b.x1, y: b.y1 }, { k: "s", x: (b.x0 + b.x1) / 2, y: b.y1 },
-    { k: "sw", x: b.x0, y: b.y1 }, { k: "w", x: b.x0, y: (b.y0 + b.y1) / 2 }
-  ];
-  for (const p of pts) {
-    if (Math.hypot(x - p.x, y - p.y) <= r) return p.k;
-  }
-  return null;
-}
-function hitTest(x, y){
+
+function selKind(){ return selected.indexOf("cover:") === 0 ? "cover" : selected; }
+function selIndex(){ return selected.indexOf("cover:") === 0 ? Number(selected.slice(6)) : -1; }
+
+function textBox(kind){
   const p = draft.plate;
-  const r = handleR();
-  const ell = { x0: p.ellipse[0], y0: p.ellipse[1], x1: p.ellipse[2], y1: p.ellipse[3] };
-  const covers = (p.textCover || []).map((c, i) => ({ i, b: { x0: c.box[0], y0: c.box[1], x1: c.box[2], y1: c.box[3] } }));
-  for (let i = covers.length - 1; i >= 0; i--) {
-    const h = handleHits(covers[i].b, x, y, r);
-    if (h) return { kind: "cover", index: covers[i].i, handle: h };
+  const spec = p[kind];
+  const w = Math.max(24, p.maxW);
+  const x0 = p.align === "center" ? p.textX - w / 2 : p.textX;
+  const y0 = spec.baseline - spec.size * 0.86;
+  const y1 = spec.baseline + spec.size * 0.28;
+  return { x0, y0, x1: x0 + w, y1 };
+}
+
+function selBox(){
+  const p = draft.plate;
+  if (!p) return null;
+  const k = selKind();
+  if (k === "ellipse") return boxOf(p.ellipse);
+  if (k === "cover") {
+    const c = (p.textCover || [])[selIndex()];
+    return c ? boxOf(c.box) : null;
   }
-  const kinds = p.loc ? ["loc", "desg", "name"] : ["desg", "name"];
-  for (const kind of kinds) {
-    const b = textBox(kind);
-    const h = handleHits(b, x, y, r);
-    if (h) return { kind, handle: h };
-    if (inRect(x, y, b, 4)) return { kind, handle: "body" };
-  }
-  for (let i = covers.length - 1; i >= 0; i--) {
-    if (inRect(x, y, covers[i].b, 0)) return { kind: "cover", index: covers[i].i, handle: "body" };
-  }
-  const eh = handleHits(ell, x, y, r);
-  if (eh) return { kind: "ellipse", handle: eh };
-  const cx = (ell.x0 + ell.x1) / 2, cy = (ell.y0 + ell.y1) / 2;
-  const rx = (ell.x1 - ell.x0) / 2, ry = (ell.y1 - ell.y0) / 2;
-  if (rx > 0 && ry > 0 && ((x - cx) * (x - cx)) / (rx * rx) + ((y - cy) * (y - cy)) / (ry * ry) <= 1.08) {
-    return { kind: "ellipse", handle: "body" };
+  return p[k] ? textBox(k) : null;
+}
+
+const TEXT_KINDS = ["name", "desg", "loc"];
+
+function handlePoints(b){
+  const mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2;
+  return [
+    { k:"nw", x:b.x0, y:b.y0 }, { k:"n", x:mx, y:b.y0 }, { k:"ne", x:b.x1, y:b.y0 },
+    { k:"e",  x:b.x1, y:my },   { k:"se", x:b.x1, y:b.y1 }, { k:"s", x:mx, y:b.y1 },
+    { k:"sw", x:b.x0, y:b.y1 }, { k:"w", x:b.x0, y:my }
+  ];
+}
+/* Text lines only expose left/right handles — the rest of the box is a move
+   target, so grabbing a corner can never drag a line by accident. */
+function allowedHandles(kind){
+  return TEXT_KINDS.indexOf(kind) !== -1 ? ["e", "w"] : ["nw","n","ne","e","se","s","sw","w"];
+}
+function handleHit(kind, b, x, y, r){
+  const allow = allowedHandles(kind);
+  const pts = handlePoints(b);
+  for (let i = 0; i < pts.length; i++) {
+    const h = pts[i];
+    if (allow.indexOf(h.k) === -1) continue;
+    if (Math.hypot(x - h.x, y - h.y) <= r) return h.k;
   }
   return null;
 }
 
-function resizeRect(b, handle, x, y, start, min){
+function nativeFromEvent(e){
+  const r = $("stage").getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (draft.image.width / Math.max(1, r.width)),
+    y: (e.clientY - r.top) * (draft.image.height / Math.max(1, r.height))
+  };
+}
+function handleR(){
+  const r = $("stage").getBoundingClientRect();
+  return 11 * (draft.image.width / Math.max(1, r.width));
+}
+
+/* Handles of the selected shape win, then cover boxes, then the text line
+   whose centre is nearest the pointer, then the photo hole. */
+function hitTest(x, y){
+  const p = draft.plate;
+  const r = handleR();
+
+  const k = selKind();
+  const sb = selBox();
+  if (sb) {
+    const h = handleHit(k, sb, x, y, r * 1.25);
+    if (h) return { kind: k, index: selIndex(), handle: h };
+  }
+
+  const covers = p.textCover || [];
+  for (let i = covers.length - 1; i >= 0; i--) {
+    if (pointIn(boxOf(covers[i].box), x, y, 0)) return { kind:"cover", index:i, handle:"body" };
+  }
+
+  let best = null;
+  const kinds = p.loc ? ["loc", "desg", "name"] : ["desg", "name"];
+  for (let i = 0; i < kinds.length; i++) {
+    const kind = kinds[i];
+    const b = textBox(kind);
+    if (!pointIn(b, x, y, 3)) continue;
+    const d = Math.abs(y - (b.y0 + b.y1) / 2);
+    if (!best || d < best.d) best = { kind, d };
+  }
+  if (best) return { kind: best.kind, index: -1, handle: "body" };
+
+  const ell = boxOf(p.ellipse);
+  const c = boxCenter(ell);
+  const rx = boxW(ell) / 2, ry = boxH(ell) / 2;
+  if (rx > 0 && ry > 0) {
+    const q = ((x - c.x) * (x - c.x)) / (rx * rx) + ((y - c.y) * (y - c.y)) / (ry * ry);
+    if (q <= 1.06) return { kind:"ellipse", index:-1, handle:"body" };
+  }
+  return null;
+}
+
+function resizeRect(b, handle, x, y, min){
   min = min || 16;
-  let { x0, y0, x1, y1 } = b;
+  let x0 = b.x0, y0 = b.y0, x1 = b.x1, y1 = b.y1;
   if (handle.indexOf("n") !== -1) y0 = Math.min(y1 - min, y);
   if (handle.indexOf("s") !== -1) y1 = Math.max(y0 + min, y);
   if (handle.indexOf("w") !== -1) x0 = Math.min(x1 - min, x);
@@ -495,137 +568,267 @@ function resizeRect(b, handle, x, y, start, min){
   return { x0, y0, x1, y1 };
 }
 
-function applyDrag(e){
+function clonePlate(p){
+  try { return structuredClone(p); }
+  catch (e) { return JSON.parse(JSON.stringify(p)); }
+}
+
+/* ---------- dragging ----------------------------------------------------- */
+
+/* Every move is measured against the plate as it looked when the drag
+   started. Nothing accumulates, so a nudge at an edge can never make the
+   line drift or stick. */
+function applyDrag(pt){
   if (!drag || !draft) return;
-  const pt = nativeFromEvent(e);
   const p = draft.plate;
-  const dx = pt.x - drag.x;
-  const dy = pt.y - drag.y;
+  const s = drag.snap;
+  const dx = pt.x - drag.startX;
+  const dy = pt.y - drag.startY;
+
   if (drag.kind === "ellipse") {
-    let b = { x0: drag.box.x0, y0: drag.box.y0, x1: drag.box.x1, y1: drag.box.y1 };
+    let b = boxOf(s.ellipse);
     if (drag.handle === "body") {
-      b.x0 += dx; b.x1 += dx; b.y0 += dy; b.y1 += dy;
+      b = { x0:b.x0 + dx, y0:b.y0 + dy, x1:b.x1 + dx, y1:b.y1 + dy };
     } else if (circleLock) {
-      const cx = (drag.box.x0 + drag.box.x1) / 2;
-      const cy = (drag.box.y0 + drag.box.y1) / 2;
-      const rad = Math.max(16, Math.hypot(pt.x - cx, pt.y - cy));
-      b = { x0: cx - rad, y0: cy - rad, x1: cx + rad, y1: cy + rad };
+      const c = boxCenter(b);
+      const rad = Math.max(16, Math.hypot(pt.x - c.x, pt.y - c.y));
+      b = { x0:c.x - rad, y0:c.y - rad, x1:c.x + rad, y1:c.y + rad };
     } else {
-      b = resizeRect(b, drag.handle, pt.x, pt.y, drag, 16);
+      b = resizeRect(b, drag.handle, pt.x, pt.y, 16);
     }
-    p.ellipse = [b.x0, b.y0, b.x1, b.y1];
+    p.ellipse = arrOf(b);
+
   } else if (drag.kind === "cover") {
-    const c = p.textCover[drag.index];
-    let b = { x0: drag.box.x0, y0: drag.box.y0, x1: drag.box.x1, y1: drag.box.y1 };
-    if (drag.handle === "body") { b.x0 += dx; b.x1 += dx; b.y0 += dy; b.y1 += dy; }
-    else b = resizeRect(b, drag.handle, pt.x, pt.y, drag, 8);
-    c.box = [b.x0, b.y0, b.x1, b.y1];
+    const snapCover = (s.textCover || [])[drag.index];
+    const live = (p.textCover || [])[drag.index];
+    if (snapCover && live) {
+      let b = boxOf(snapCover.box);
+      if (drag.handle === "body") b = { x0:b.x0 + dx, y0:b.y0 + dy, x1:b.x1 + dx, y1:b.y1 + dy };
+      else b = resizeRect(b, drag.handle, pt.x, pt.y, 8);
+      live.box = arrOf(b);
+    }
+
   } else {
     const spec = p[drag.kind];
+    const sspec = s[drag.kind];
+    if (!spec || !sspec) return;
     if (drag.handle === "e" || drag.handle === "w") {
-      p.maxW = Math.max(20, drag.maxW + (drag.handle === "e" ? dx : -dx) * (p.align === "center" ? 2 : 1));
+      const dir = drag.handle === "e" ? 1 : -1;
+      const factor = p.align === "center" ? 2 : 1;
+      p.maxW = Math.max(24, s.maxW + dir * dx * factor);
     } else {
-      spec.baseline = drag.baseline + dy;
-      if (p.align === "center") p.textX = drag.textX + dx;
-      else p.textX = drag.textX + dx;
+      spec.baseline = sspec.baseline + dy;
+      p.textX = s.textX + dx;
     }
   }
   draft.plate = ICS.normalizePlate(p, draft.image.width, draft.image.height);
-  renderEditor();
+}
+
+/* ---------- rendering ---------------------------------------------------- */
+
+let punched = { key: "", canvas: null };
+function punchedFor(plate, img){
+  const key = imgId(img) + "|" +
+    plate.ellipse.map(v => Math.round(v * 10) / 10).join(",") + "|" +
+    (plate.holeInset || 0);
+  if (punched.key !== key) {
+    punched = { key, canvas: ICS.punchHole(img, plate.ellipse, plate.holeInset) };
+  }
+  return punched.canvas;
+}
+
+let rafId = 0;
+function scheduleRender(){
+  if (rafId) return;
+  rafId = requestAnimationFrame(() => { rafId = 0; renderEditor(); });
 }
 
 function renderEditor(){
   if (!draft) return;
   const stage = $("stage");
   const img = draft.image;
-  const cssW = Math.min(480, stage.parentElement.clientWidth - 24);
-  stage.width = Math.round(cssW);
-  stage.height = Math.round(cssW * img.height / img.width);
+
+  const cssW = Math.max(180, Math.min(480, stage.parentElement.clientWidth - 24));
+  const cssH = Math.round(cssW * img.height / img.width);
+  if (stage.width !== Math.round(cssW) || stage.height !== cssH) {
+    stage.width = Math.round(cssW);
+    stage.height = cssH;
+  }
+
   const ctx = stage.getContext("2d");
   ctx.clearRect(0, 0, stage.width, stage.height);
-  const punched = ICS.punchHole(img, draft.plate.ellipse, draft.plate.holeInset);
+
+  const plate = draft.plate;
+  const punchedImg = punchedFor(plate, img);
   const person = sampleOn ? {
     name: "Dr. Sample Name",
     desg: "Consultant",
-    loc: draft.plate.loc ? "Kolkata" : "",
+    loc: plate.loc ? "Kolkata" : "",
     photo: samplePhoto
   } : { name: "", desg: "", loc: "", photo: null };
-  ICS.drawCreative(ctx, stage.width, person, img, punched, draft.plate);
-  const s = stage.width / img.width;
-  const p = draft.plate;
-  ctx.save();
-  ctx.lineWidth = 1.5;
-  function drawBox(b, stroke, fill, active){
-    ctx.strokeStyle = stroke;
-    ctx.fillStyle = fill;
-    ctx.setLineDash(active ? [] : [6, 4]);
-    ctx.strokeRect(b.x0 * s, b.y0 * s, (b.x1 - b.x0) * s, (b.y1 - b.y0) * s);
-    ctx.setLineDash([]);
-    if (active) {
-      const hs = [{x:b.x0,y:b.y0},{x:(b.x0+b.x1)/2,y:b.y0},{x:b.x1,y:b.y0},{x:b.x1,y:(b.y0+b.y1)/2},{x:b.x1,y:b.y1},{x:(b.x0+b.x1)/2,y:b.y1},{x:b.x0,y:b.y1},{x:b.x0,y:(b.y0+b.y1)/2}];
-      hs.forEach((h) => {
-        ctx.fillRect(h.x * s - 4, h.y * s - 4, 8, 8);
-        ctx.strokeRect(h.x * s - 4, h.y * s - 4, 8, 8);
-      });
-    }
-  }
-  const ell = { x0: p.ellipse[0], y0: p.ellipse[1], x1: p.ellipse[2], y1: p.ellipse[3] };
-  ctx.strokeStyle = "#0891b2";
-  ctx.setLineDash(selected === "ellipse" ? [] : [6, 4]);
-  ctx.beginPath();
-  ctx.ellipse(((ell.x0 + ell.x1) / 2) * s, ((ell.y0 + ell.y1) / 2) * s, ((ell.x1 - ell.x0) / 2) * s, ((ell.y1 - ell.y0) / 2) * s, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  if (selected === "ellipse") drawBox(ell, "#0891b2", "#22d3ee", true);
-  (p.textCover || []).forEach((c, i) => {
-    const b = { x0: c.box[0], y0: c.box[1], x1: c.box[2], y1: c.box[3] };
-    drawBox(b, "#b45309", "#fde68a", selected === "cover:" + i);
-  });
-  drawBox(textBox("name"), "#e11d48", "#fda4af", selected === "name");
-  drawBox(textBox("desg"), "#1d4ed8", "#93c5fd", selected === "desg");
-  if (p.loc) drawBox(textBox("loc"), "#15803d", "#86efac", selected === "loc");
-  ctx.restore();
-  $("selHint").textContent =
-    selected === "ellipse" ? "Photo hole selected — drag to move, handles to resize."
-    : selected === "name" ? "Name line selected — drag to move, side handles change max width."
-    : selected === "desg" ? "Designation line selected."
-    : selected === "loc" ? "Location line selected."
-    : selected.indexOf("cover:") === 0 ? "Cover box selected — this wipes printed placeholder text."
-    : "Click a shape on the artwork to select it.";
-  $("statusHint").textContent = draft.image.width + "×" + draft.image.height + " px";
+
+  ICS.drawCreative(ctx, stage.width, person, img, punchedImg, plate);
+  drawOverlay(ctx, stage.width / img.width, plate);
+
+  $("selHint").textContent = selectionHint();
+  $("statusHint").textContent = img.width + "×" + img.height + " px";
 }
 
+function drawOverlay(ctx, s, p){
+  const stroke = { ellipse:"#0891b2", name:"#e11d48", desg:"#1d4ed8", loc:"#15803d", cover:"#b45309" };
+  const label  = { ellipse:"Photo hole", name:"Name", desg:"Designation", loc:"Location", cover:"Cover" };
+
+  const items = [{ key:"ellipse", kind:"ellipse", box: boxOf(p.ellipse) }];
+  (p.textCover || []).forEach((c, i) => {
+    items.push({ key:"cover:" + i, kind:"cover", box: boxOf(c.box) });
+  });
+  TEXT_KINDS.forEach(k => {
+    if (p[k]) items.push({ key:k, kind:k, box: textBox(k) });
+  });
+
+  ctx.save();
+  items.forEach((it) => {
+    const active = it.key === selected;
+    const color = stroke[it.kind];
+    const b = it.box;
+
+    ctx.setLineDash(active ? [] : [6, 4]);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = active ? 2 : 1.25;
+    ctx.strokeRect(b.x0 * s, b.y0 * s, boxW(b) * s, boxH(b) * s);
+    ctx.setLineDash([]);
+
+    if (!active) return;
+
+    const allow = allowedHandles(it.kind);
+    handlePoints(b).forEach((h) => {
+      if (allow.indexOf(h.k) === -1) return;
+      const x = h.x * s, y = h.y * s;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(x - 4.5, y - 4.5, 9, 9);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x - 4.5, y - 4.5, 9, 9);
+    });
+
+    const text = label[it.kind] + (it.kind === "cover" ? " " + (selIndex() + 1) : "");
+    drawChip(ctx, b.x0 * s, b.y0 * s - 10, text, color);
+  });
+  ctx.restore();
+}
+
+function drawChip(ctx, x, y, text, color){
+  ctx.save();
+  ctx.font = "600 11px Poppins, system-ui, sans-serif";
+  const w = ctx.measureText(text).width + 12;
+  const h = 18;
+  const cx = Math.max(2, Math.min(x, ctx.canvas.width - w - 2));
+  const cy = Math.max(2, Math.min(y - h, ctx.canvas.height - h - 2));
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(cx, cy, w, h, 5);
+  else ctx.rect(cx, cy, w, h);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, cx + 6, cy + h / 2 + 0.5);
+  ctx.restore();
+}
+
+function selectionHint(){
+  switch (selKind()) {
+    case "ellipse": return "Photo hole selected — drag to move, corner handles to resize.";
+    case "name":    return "Name selected — drag to move, side handles to widen the text block.";
+    case "desg":    return "Designation selected — drag to move, side handles to widen the text block.";
+    case "loc":     return "Location selected — drag to move, side handles to widen the text block.";
+    case "cover":   return "Cover box selected — drag to move, handles to resize. Delete removes it.";
+    default:        return "Click a shape on the artwork to select it.";
+  }
+}
+
+/* ---------- pointer wiring ----------------------------------------------- */
+
 const stage = $("stage");
+
+function cursorFor(hit){
+  if (!hit) return "default";
+  if (hit.handle === "body") return "move";
+  const k = hit.handle;
+  if (k === "e" || k === "w") return "ew-resize";
+  if (k === "n" || k === "s") return "ns-resize";
+  if (k === "ne" || k === "sw") return "nesw-resize";
+  return "nwse-resize";
+}
+
 stage.addEventListener("pointerdown", (e) => {
   if (!draft) return;
+  e.preventDefault();
   const pt = nativeFromEvent(e);
   const hit = hitTest(pt.x, pt.y);
   if (!hit) return;
+
   selected = hit.kind === "cover" ? "cover:" + hit.index : hit.kind;
-  const p = draft.plate;
-  let box;
-  if (hit.kind === "ellipse") box = { x0: p.ellipse[0], y0: p.ellipse[1], x1: p.ellipse[2], y1: p.ellipse[3] };
-  else if (hit.kind === "cover") {
-    const c = p.textCover[hit.index].box;
-    box = { x0: c[0], y0: c[1], x1: c[2], y1: c[3] };
-  } else box = textBox(hit.kind);
   drag = {
-    kind: hit.kind, index: hit.index, handle: hit.handle,
-    x: pt.x, y: pt.y, box, maxW: p.maxW, textX: p.textX,
-    baseline: hit.kind !== "ellipse" && hit.kind !== "cover" ? p[hit.kind].baseline : 0
+    kind: hit.kind,
+    index: hit.index,
+    handle: hit.handle,
+    startX: pt.x,
+    startY: pt.y,
+    clientX: e.clientX,
+    clientY: e.clientY,
+    snap: clonePlate(draft.plate),
+    active: false
   };
-  stage.setPointerCapture(e.pointerId);
-  stage.classList.add("dragging");
+  try { stage.setPointerCapture(e.pointerId); } catch (err) {}
   renderEditor();
 });
-stage.addEventListener("pointermove", (e) => { if (drag) applyDrag(e); });
-["pointerup","pointercancel"].forEach((ev) => stage.addEventListener(ev, () => {
-  drag = null; stage.classList.remove("dragging");
+
+stage.addEventListener("pointermove", (e) => {
+  if (!draft) return;
+  const pt = nativeFromEvent(e);
+
+  if (!drag) {
+    stage.style.cursor = cursorFor(hitTest(pt.x, pt.y));
+    return;
+  }
+
+  if (!drag.active) {
+    if (Math.hypot(e.clientX - drag.clientX, e.clientY - drag.clientY) < 3) return;
+    drag.active = true;
+    stage.style.cursor = "grabbing";
+  }
+  e.preventDefault();
+  applyDrag(pt);
+  scheduleRender();
+});
+
+["pointerup", "pointercancel"].forEach((ev) => stage.addEventListener(ev, () => {
+  if (drag && drag.active && draft) {
+    draft.plate = ICS.normalizePlate(draft.plate, draft.image.width, draft.image.height);
+  }
+  drag = null;
+  stage.style.cursor = "default";
+  if (draft) renderEditor();
 }));
+
+stage.addEventListener("pointerleave", () => {
+  if (!drag) stage.style.cursor = "default";
+});
 
 document.addEventListener("keydown", (e) => {
   if (view !== "edit" || !draft) return;
+  const tag = (e.target && e.target.tagName) || "";
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag)) return;
+
   if (e.key === "Escape") { showList(); return; }
+
+  if ((e.key === "Delete" || e.key === "Backspace") && selKind() === "cover") {
+    e.preventDefault();
+    removeSelectedCover();
+    return;
+  }
+
   const step = e.shiftKey ? 10 : 1;
   let dx = 0, dy = 0;
   if (e.key === "ArrowLeft") dx = -step;
@@ -633,14 +836,14 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowUp") dy = -step;
   else if (e.key === "ArrowDown") dy = step;
   else return;
+
   e.preventDefault();
   const p = draft.plate;
-  if (selected === "ellipse") {
+  if (selKind() === "ellipse") {
     p.ellipse = [p.ellipse[0] + dx, p.ellipse[1] + dy, p.ellipse[2] + dx, p.ellipse[3] + dy];
-  } else if (selected.indexOf("cover:") === 0) {
-    const i = Number(selected.slice(6));
-    const b = p.textCover[i].box;
-    p.textCover[i].box = [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy];
+  } else if (selKind() === "cover") {
+    const c = (p.textCover || [])[selIndex()];
+    if (c) c.box = [c.box[0] + dx, c.box[1] + dy, c.box[2] + dx, c.box[3] + dy];
   } else if (p[selected]) {
     p[selected].baseline += dy;
     p.textX += dx;
@@ -649,27 +852,102 @@ document.addEventListener("keydown", (e) => {
   renderEditor();
 });
 
-["labelInput","alignSel","nameSize","desgSize","nameFill","desgFill","locToggle"].forEach((id) => {
-  $(id).addEventListener("input", () => { syncPlateFromForm(); renderEditor(); });
-  $(id).addEventListener("change", () => { syncPlateFromForm(); renderEditor(); });
+/* ---------- side panel ---------------------------------------------------- */
+
+$("labelInput").addEventListener("input", () => {
+  if (draft) draft.label = $("labelInput").value.trim();
 });
+
+$("alignSel").addEventListener("change", () => {
+  if (!draft) return;
+  const next = $("alignSel").value === "center" ? "center" : "left";
+  if (next !== draft.plate.align) {
+    /* Keep the text where it is on screen instead of letting it jump by
+       half the block width when the anchor changes. */
+    const shift = Math.max(24, draft.plate.maxW) / 2;
+    draft.plate.textX += next === "center" ? shift : -shift;
+  }
+  syncPlateFromForm();
+  renderEditor();
+});
+
+function wireSizeInput(id, key){
+  const el = $(id);
+  el.addEventListener("input", () => {
+    if (!draft) return;
+    const v = Number(el.value);
+    if (!isFinite(v) || v <= 0) return;            // let the user finish typing
+    draft.plate[key].size = ICS.clamp(v, 8, 200);
+    draft.plate = ICS.normalizePlate(draft.plate, draft.image.width, draft.image.height);
+    renderEditor();
+  });
+  el.addEventListener("change", () => {
+    if (!draft) return;
+    const v = Number(el.value);
+    const size = ICS.clamp(isFinite(v) && v > 0 ? v : draft.plate[key].size, 8, 200);
+    draft.plate[key].size = size;
+    draft.plate = ICS.normalizePlate(draft.plate, draft.image.width, draft.image.height);
+    el.value = Math.round(size);                   // always show the real value
+    renderEditor();
+  });
+  el.addEventListener("blur", () => {
+    if (!draft) return;
+    el.value = Math.round(draft.plate[key].size);
+  });
+}
+wireSizeInput("nameSize", "name");
+wireSizeInput("desgSize", "desg");
+
+$("nameFill").addEventListener("input", () => {
+  if (!draft) return;
+  draft.plate.name.fill = toColor($("nameFill").value);
+  renderEditor();
+});
+$("desgFill").addEventListener("input", () => {
+  if (!draft) return;
+  draft.plate.desg.fill = toColor($("desgFill").value);
+  renderEditor();
+});
+
+$("locToggle").addEventListener("change", () => {
+  if (!draft) return;
+  if ($("locToggle").checked) {
+    if (!draft.plate.loc) draft.plate.loc = makeLocLine(draft.plate);
+  } else {
+    delete draft.plate.loc;
+    if (selected === "loc") selected = "name";
+  }
+  draft.plate = ICS.normalizePlate(draft.plate, draft.image.width, draft.image.height);
+  renderEditor();
+});
+
 $("circleLock").onchange = () => { circleLock = $("circleLock").checked; };
 $("sampleToggle").onchange = () => { sampleOn = $("sampleToggle").checked; renderEditor(); };
+
+function removeSelectedCover(){
+  if (!draft || selKind() !== "cover") { toast("Select a cover box first."); return; }
+  const i = selIndex();
+  if (!draft.plate.textCover || !draft.plate.textCover[i]) return;
+  draft.plate.textCover.splice(i, 1);
+  selected = "ellipse";
+  renderEditor();
+}
+
 $("addCoverBtn").onclick = () => {
   if (!draft) return;
   const p = draft.plate;
-  const y = (p.textCover[p.textCover.length - 1] ? p.textCover[p.textCover.length - 1].box[3] : p.name.baseline) + 8;
-  p.textCover.push({ box: [p.textX, y, p.textX + p.maxW, y + 36] });
+  if (!Array.isArray(p.textCover)) p.textCover = [];
+  const last = p.textCover[p.textCover.length - 1];
+  const y = last ? last.box[3] + 8 : p.desg.baseline + 12;
+  const w = Math.max(24, p.maxW);
+  const x0 = p.align === "center" ? p.textX - w / 2 : p.textX;
+  p.textCover.push({ box: [x0, y, x0 + w, y + 36] });
   selected = "cover:" + (p.textCover.length - 1);
-  syncPlateFromForm(); renderEditor();
+  draft.plate = ICS.normalizePlate(p, draft.image.width, draft.image.height);
+  renderEditor();
 };
-$("delCoverBtn").onclick = () => {
-  if (!draft || selected.indexOf("cover:") !== 0) { toast("Select a cover box first."); return; }
-  const i = Number(selected.slice(6));
-  draft.plate.textCover.splice(i, 1);
-  selected = "ellipse";
-  syncPlateFromForm(); renderEditor();
-};
+$("delCoverBtn").onclick = removeSelectedCover;
+
 $("backBtn").onclick = () => showList();
 $("newBtn").onclick = () => $("newDrop").classList.toggle("hide");
 $("replaceImgBtn").onclick = () => $("replaceFile").click();
