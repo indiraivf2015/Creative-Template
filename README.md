@@ -1,48 +1,115 @@
-# Creative Studio template
+# Creative Studio
 
-A static, in-browser studio that drops a photo and a name / designation onto official campaign artwork, then downloads a PNG.
+Drops an employee photo and their name / designation onto official campaign
+artwork, then downloads a PNG.
 
-This Ganesh Chaturthi build is one instance of that studio. Copy the folder and swap artwork + numbers to reuse it for Diwali, Independence Day, Doctors’ Day, or any other card.
+The site has **two routes, and only two**:
 
-Photos and text stay in the browser. Nothing is uploaded to a server.
+| Route | Who | What they can do |
+|---|---|---|
+| `/admin` | Campaign admin, behind a PIN | Upload artwork, place the photo hole and name lines, generate a public link per layout |
+| `/t/<id>` | Everyone else | Add a photo, name and designation to **that one layout**, download the PNG |
+
+Anyone landing on `/` with no link gets a short notice pointing them back to
+whoever runs the campaign.
+
+An employee opening `/t/<id>` cannot switch layouts, move anything, or reach
+Template Manager. Their photo and typed name never leave their browser — the
+page renders the PNG locally and nothing is uploaded.
+
+## The flow
+
+1. Admin opens `/admin`, enters the PIN.
+2. **New template** → drop in the festival artwork.
+3. Drag the photo circle and the name / designation boxes onto the printed slots.
+4. **Save** — the share dialog opens with the link, e.g.
+   `https://your-site.vercel.app/t/t-9f2a4c8b`.
+5. Send that link to the people it is for. Each layout has its own link.
+
+Built-in layouts are linkable too: `/t/doctor` and `/t/employee`.
+
+## Setup (once, on Vercel)
+
+Both of these are required. Without them the admin can still lay out a template,
+but it stays in that one browser and the links will not open for anyone else.
+
+1. **Storage** → **Blob** → create a store. This injects `BLOB_READ_WRITE_TOKEN`.
+2. **Settings** → **Environment Variables** → add `ADMIN_PIN`.
+3. Redeploy.
+
+`ADMIN_PIN` is checked **on the server**, on every create, edit and delete. The
+browser only holds it for the tab (`sessionStorage`) so later saves can present
+it. `ADMIN_PASSWORD` is still accepted as an older name for the same variable.
 
 ## What you get
 
-- Solo mode: upload one photo, type name / designation, download PNG
-- Optional Excel / ZIP batch (off by default)
-- Doctor and Employee layouts for the same festival
+- Public link scoped to exactly one layout
+- PIN-gated Template Manager with live artwork upload and position editing
+- Doctor and Employee Ganesh Chaturthi layouts built in
 - Photo fills a circular hole; the printed ring stays on top
 - Printed placeholders (`Your Name`, `Designation`) are wiped only when that field is filled
+- Optional Excel / ZIP batch, off by default (`EXCEL_ENABLE`)
 
-## Run it
+## Run it locally
 
-Needs Python 3 on the PATH.
-
-```bat
-start.bat
-```
-
-Or:
+The `/api/*` routes are Vercel serverless functions, so a plain static server
+gives you the pages but not saving:
 
 ```bat
-cd "C:\Ganesh Chaturthi_Indira"
-python -m http.server 8765
+npm install
+npx vercel dev
 ```
 
-Open **http://127.0.0.1:8765/** and hard-refresh after you edit the HTML.
+Then `http://localhost:3000/`, `/admin`, `/t/doctor`.
 
-`index.html` redirects to `Indira_Creative_Studio.html`.
+`start.bat` (Python static server) still serves the pages, but `/api/*`,
+`/admin` and `/t/<id>` will not route — those come from `vercel.json`.
+
+Copy `.env.example` to `.env` for local `vercel dev`. Never commit a real `.env`.
 
 ## Files
 
 | Path | Role |
 |---|---|
-| `Indira_Creative_Studio.html` | Whole app (UI + canvas) |
-| `index.html` | Redirect into the studio |
-| `templates/*.png` | Artwork the app draws (1169×1460) |
-| `tools/prepare_templates.py` | Builds `templates/*.png` from the official artwork |
-| `start.bat` | Local server |
-| `vercel.json` | Optional host rewrite |
+| `index.html` | `/` — "you need a campaign link" notice |
+| `Indira_Creative_Studio.html` | `/t/<id>` — the scoped public studio |
+| `admin.html` | `/admin` — Template Manager, PIN gated |
+| `js/ics.js` | Shared catalog, drawing, punch-hole, `loadOne`, `publicLink` |
+| `templates/catalog.json` | Built-in layouts and their position metadata |
+| `templates/*.png` | Built-in artwork |
+| `api/templates.js` | `GET` list (public), `POST` create (PIN) |
+| `api/templates/[id].js` | `GET` one (public), `PUT` / `DELETE` (PIN) |
+| `api/admin/login.js` | `POST` — PIN check for the admin unlock screen |
+| `lib/server.js` | PIN enforcement, DTO validation, Blob catalog helpers |
+| `tools/prepare_templates.py` | Optional: builds `templates/*.png` from official artwork |
+| `start.bat` | Local static server (pages only, no API) |
+| `vercel.json` | `/admin` and `/t/:id` rewrites |
+| `.env.example` | `ADMIN_PIN` and Blob token placeholders |
+
+## Where templates live
+
+Merged in this order, last wins:
+
+1. **Built-in** — `templates/catalog.json`, shipped in the repo.
+2. **Server** — Vercel Blob (`ics/catalog.json` + `ics/images/`), shared by everyone.
+3. **This browser** — IndexedDB, only when the server is unreachable.
+
+A public link resolves against 1 and 2. A layout that only exists in tier 3 will
+404 for everyone but the admin who made it, which is why Blob is required.
+
+## Add a layout
+
+1. `/admin`, enter the PIN.
+2. **New template**, drop the artwork in.
+3. Drag the cyan circle onto the printed photo slot; drag a corner to resize.
+4. Drag the name and designation boxes onto the printed lines. Box height sets
+   the font size, box width sets the wrap width.
+5. Set colours, alignment, and the optional Location line on the right.
+6. **Save**, then copy the link from the dialog.
+
+Do not reuse Ganesh Chaturthi `ellipse` / `textX` / `textCover` values on
+different artwork — place them visually. Add `loc` only if the artwork prints a
+location line; the Location field and the download gate both key off it.
 
 ### The Ganesh Chaturthi templates
 
@@ -80,38 +147,35 @@ they live elsewhere.
 
 ## Reuse for another campaign
 
-1. Copy this folder. Rename it, for example `Diwali_Template`.
-2. Put the new official artwork in `templates/`, or adapt `tools/prepare_templates.py`.
-3. In `Indira_Creative_Studio.html`, change the title, header copy, and `VERSION`.
-4. Point `BUILTIN` at the new files and set the geometry (`PLATE` / `PRESETS`).
-5. Add matching `<option>` rows in `#layoutSelect`.
-6. Measure the photo hole and nameplate on the **new** artwork (see below). Do not
-   reuse Ganesh Chaturthi `ellipse` / `textX` / `textCover` values.
-7. Add `loc` to the preset only if the artwork prints a location line — the
-   Location field and the download gate both key off it.
-8. Run locally, type a short name and a long name, download a PNG, check both layouts.
+You do not need a second deploy. One site holds every campaign: add the new
+artwork in Template Manager, place the hole and nameplate, and send out that
+layout's own `/t/<id>` link. Old links keep working, each scoped to its own
+layout.
 
-### Geometry (`PLATE` / `PRESETS`)
+Only copy the folder if a campaign genuinely needs its own domain or its own
+PIN. Then change the title, header copy, and `VERSION` for the new campaign
+name.
 
-Coordinates are in **native template pixels** (1169×1460 here). Both Ganesh
-Chaturthi layouts share one nameplate, so they share one `PLATE` object.
+## Geometry (`templates/catalog.json`)
+
+Coordinates are in **native template pixels**. Each layout stores its own plate. The built-in Ganesh Chaturthi layouts share one nameplate:
 
 ```js
-const PLATE = {
+{
   baseW: 1169, aspect: 1169 / 1460,
   ellipse: [46, 925, 288, 1167],   // photo hole = the circle drawn into the PNG
   holeInset: 0,                    // 0 = punch the full ellipse
-  align: 'left', textX: 369,       // left edge of both printed lines
+  align: "left", textX: 369,       // left edge of both printed lines
   maxW: 380,                       // max name width before the font shrinks
-  name: { baseline: 1042, size: 35, weight: 700, fill: '#E10A1D', font: '…' },
-  desg: { baseline: 1080, size: 29, weight: 500, fill: '#163B66', font: '…' },
+  name: { baseline: 1042, size: 35, weight: 700, fill: "#E10A1D", font: "…" },
+  desg: { baseline: 1080, size: 29, weight: 500, fill: "#163B66", font: "…" },
   paperY: [985, 1014],             // clean paper rows ABOVE the name (no letters)
   paperMaxX: 700,                  // stop before artwork on the right
   textCover: [
     { box: [355, 1010, 554, 1049] },  // covers printed "Your Name"
     { box: [357, 1051, 528, 1093] }   // covers printed "Designation"
   ]
-};
+}
 ```
 
 How to measure:
@@ -136,15 +200,27 @@ The clip and the hole are both anti-aliased; matching them exactly leaves each
 edge pixel partly transparent and a pale hairline shows between the photo and
 the ring. The ring is drawn on top and hides the overrun.
 
-### Branding and solo vs Excel
+### Branding knobs
 
 | Knob | Where | What to change |
 |---|---|---|
-| Page title / header | `<title>`, header HTML | Campaign name |
+| Page title / header | header HTML in all three pages | Campaign name |
 | Accent colours | `:root` `--accent`, `--cream` | Brand |
-| Location line | `PRESETS.*.loc` | Omit it when the artwork has none |
+| Location line | Template Manager “Location line”, or `plate.loc` | Omit it when the artwork has none |
 | Excel / ZIP | `EXCEL_ENABLE` | `true` for team batch |
-| Default layout | `geoKey` / `store.get('tpl', …)` | `'doctor'` or `'employee'` |
+
+The public page takes its layout from the link, so there is no "default layout"
+to set — `/t/<id>` names it, and the tab title becomes the layout's label.
+
+### Deploy
+
+Static pages plus Vercel serverless (`/api/*`). `vercel.json` rewrites `/admin`
+to Template Manager and `/t/:id` to the studio; `/` falls through to
+`index.html`. The studio carries `<base href="/">` so its assets and fetches
+resolve from the root rather than from `/t/`.
+
+After deploy, hard-refresh so browsers do not keep an old copy of a page. Set
+Blob + `ADMIN_PIN` before expecting shared saves or working links.
 
 ### Excel batch (optional)
 
@@ -170,14 +246,9 @@ the generated PNGs by hand. Those create a grainy / ghosted nameplate.
 
 ## Download PNG
 
-The button enables when **photo, name, and designation** are all filled. You can
-download again after the first save.
+The button enables when **photo, name, and designation** are all filled (plus
+Location, on layouts that define one). You can download again after the first
+save.
 
 Open the HTML in Chrome (not only an iframe preview) for one-click save. Preview
 frames can block downloads.
-
-## Deploy
-
-Static host (Vercel, Netlify, any file server). `vercel.json` already rewrites `/` to the studio.
-
-After deploy, hard-refresh so browsers do not keep an old `Indira_Creative_Studio.html`.

@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Template Manager · Creative Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Great+Vibes&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FFFFFF; --surface:#FFFFFF; --border:#E5E5E5; --border-strong:#C8C8C8;
+    --text:#1A1A1A; --text-2:#5A5A5A; --text-3:#8A8A8A;
+    --accent:#E10A1D; --accent-hover:#B60816; --accent-soft:#FEF2F3;
+    --ok:#15803D; --ok-soft:#F0FDF4; --warn:#B45309; --warn-bg:#FFFBEB; --warn-br:#FDE68A;
+    --r-card:12px; --r-input:8px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Poppins',system-ui,Arial,sans-serif;
+    background:var(--bg); color:var(--text); font-size:14px; line-height:1.5;
+  }
+  button,select,input{font-family:inherit; font-size:inherit;}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  header{
+    background:linear-gradient(180deg,#FFFBF6 0%,#FBF3E8 100%);
+    border-bottom:1px solid var(--border);
+  }
+  .hd-inner{max-width:1280px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .hd-mark{width:26px; height:58px; flex:none; display:flex; align-items:center; justify-content:center;}
+  .hd-mark img{width:26px; height:58px; object-fit:contain; display:block; filter:drop-shadow(0 1px 2px rgba(150,90,20,.28));}
+  .hd-title{font-size:16px; font-weight:600;}
+  .hd-title em{font-family:'Great Vibes',cursive; font-style:normal; font-weight:400; font-size:28px; color:var(--accent); margin-right:6px; line-height:1;}
+  .hd-title span{color:var(--text-3); font-weight:400;}
+  .hd-nav{margin-left:auto;}
+  .festive-bar{height:4px; background:linear-gradient(90deg,#E8A13C 0%,#E10A1D 35%,#E8A13C 70%,#E10A1D 100%);}
+  .wrap{max-width:1280px; margin:0 auto; padding:16px 24px 28px;}
+  .banner{margin-bottom:16px;}
+  .banner-in{background:var(--warn-bg); border:1px solid var(--warn-br); color:#78350F; border-radius:var(--r-card); padding:10px 14px; font-size:13px;}
+  .hide{display:none !important;}
+  .btn{border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:var(--r-input); padding:7px 14px; font-size:13px; font-weight:500; cursor:pointer;}
+  .btn:hover{border-color:var(--border-strong); background:#FFF8F0;}
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .btn.primary:hover{background:var(--accent-hover); border-color:var(--accent-hover);}
+  .btn:disabled{opacity:.45; cursor:not-allowed;}
+  .btn.small{padding:5px 10px; font-size:12px;}
+  .btn.danger{color:#B91C1C; border-color:#FECACA;}
+  .fld{display:flex; flex-direction:column; gap:2px;}
+  .fld label{font-size:11px; color:var(--text-2);}
+  .fld input,.fld select{
+    border:1px solid var(--border); border-radius:var(--r-input);
+    padding:8px 10px; background:#fff; color:var(--text); width:100%;
+  }
+  .fld input:focus,.fld select:focus{outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent;}
+  .check{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-2);}
+  .hint{font-size:12px; color:var(--text-3); line-height:1.55;}
+  .list-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
+  .list-head h1{font-size:16px; font-weight:600;}
+  .count{font-size:12px; color:var(--text-2);}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px;}
+  .tcard{border:1px solid var(--border); border-radius:var(--r-card); overflow:hidden; background:#fff; display:flex; flex-direction:column;}
+  .tcard img{width:100%; aspect-ratio:4/5; object-fit:cover; background:#F7F7F7; display:block;}
+  .tcard-body{padding:10px 12px 12px; display:flex; flex-direction:column; gap:8px;}
+  .tcard-name{font-weight:600; font-size:13px;}
+  .tcard-meta{font-size:12px; color:var(--text-2);}
+  .tcard-actions{display:flex; gap:6px; flex-wrap:wrap;}
+  .editor{display:grid; grid-template-columns:minmax(280px,1fr) 280px; gap:18px; align-items:start;}
+  @media (max-width:900px){ .editor{grid-template-columns:1fr;} .wrap{padding:16px;} }
+  .canvas-wrap{border:1px solid var(--border); border-radius:var(--r-card); padding:12px; background:#fff;}
+  #stage{width:100%; max-width:480px; height:auto; display:block; margin:0 auto; touch-action:none; cursor:crosshair; border-radius:8px; background:#fff;}
+  #stage.dragging{cursor:grabbing;}
+  .side{display:flex; flex-direction:column; gap:12px; border:1px solid var(--border); border-radius:var(--r-card); padding:14px;}
+  .side h2{font-size:13px; font-weight:600;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .legend{display:flex; flex-wrap:wrap; gap:10px; font-size:11px; color:var(--text-2); margin-top:8px;}
+  .legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:middle;}
+  .ovl{position:fixed; inset:0; background:rgba(42,26,26,.72); display:none; align-items:center; justify-content:center; padding:24px; z-index:50;}
+  .ovl.show{display:flex;}
+  .ovl-card{background:#fff; border-radius:var(--r-card); max-width:400px; width:100%; padding:20px;}
+  .ovl-card h3{font-size:16px; margin-bottom:6px;}
+  .ovl-card p{font-size:13px; color:var(--text-2); margin-bottom:14px;}
+  .ovl-foot{display:flex; gap:8px; justify-content:flex-end; margin-top:14px;}
+  .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--text); color:#fff; padding:8px 16px; border-radius:var(--r-input); font-size:13px; opacity:0; pointer-events:none; transition:opacity 150ms ease; max-width:92vw; text-align:center; z-index:60;}
+  .toast.show{opacity:1;}
+  .drop{border:1.5px dashed var(--border); border-radius:var(--r-card); padding:28px 16px; text-align:center; cursor:pointer; color:var(--text-2);}
+  .drop:hover,.drop.over{border-color:var(--accent); background:var(--accent-soft); color:var(--accent);}
+  .drop input{display:none;}
+  footer{padding:8px 0 0; color:var(--text-3); font-size:12px; display:flex; gap:12px; flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<header>
+  <div class="hd-inner">
+    <div class="hd-mark" aria-hidden="true"><img src="/templates/header-ganesh.png" alt=""></div>
+    <div class="hd-title"><em>Ganesh Chaturthi</em> Template Manager <span>· Indira IVF</span></div>
+  </div>
+  <div class="festive-bar"></div>
+</header>
+
+<div class="wrap">
+  <div class="banner hide" id="banner"><div class="banner-in" id="bannerText"></div></div>
+
+  <section id="listView">
+    <div class="list-head">
+      <h1>Templates</h1>
+      <span class="count" id="countLabel"></span>
+      <button class="btn primary" type="button" id="newBtn" style="margin-left:auto">New template</button>
+    </div>
+    <label class="drop hide" id="newDrop">
+      Drop artwork here, or click to choose a PNG / JPG / WEBP
+      <input type="file" id="newFile" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+    </label>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section id="editView" class="hide">
+    <div class="list-head">
+      <button class="btn small" type="button" id="backBtn">All templates</button>
+      <h1 id="editTitle">Edit template</h1>
+      <button class="btn primary" type="button" id="saveBtn" style="margin-left:auto">Save</button>
+    </div>
+    <div class="editor">
+      <div class="canvas-wrap">
+        <canvas id="stage" width="480" height="600" aria-label="Position editor"></canvas>
+        <div class="legend">
+          <span><i style="background:#22d3ee;outline:1px solid #0891b2"></i>Photo hole</span>
+          <span><i style="background:#fda4af;outline:1px solid #e11d48"></i>Name</span>
+          <span><i style="background:#93c5fd;outline:1px solid #1d4ed8"></i>Designation</span>
+          <span><i style="background:#fde68a;outline:1px solid #b45309"></i>Cover box</span>
+        </div>
+        <p class="hint" style="margin-top:8px">Drag the photo circle onto the printed ring. Drag name and designation onto the printed lines. Cover boxes hide the artwork’s placeholder text when a field is filled.</p>
+      </div>
+      <aside class="side">
+        <h2>Template</h2>
+        <div class="fld"><label for="labelInput">Layout name</label><input id="labelInput" maxlength="80"></div>
+        <label class="check"><input type="checkbox" id="sampleToggle" checked> Show sample photo &amp; text</label>
+        <label class="check"><input type="checkbox" id="circleLock" checked> Keep photo hole circular</label>
+        <label class="check"><input type="checkbox" id="locToggle"> Location line</label>
+        <div class="fld"><label for="alignSel">Text align</label>
+          <select id="alignSel"><option value="left">Left</option><option value="center">Center</option></select>
+        </div>
+        <div class="row2">
+          <div class="fld"><label for="nameSize">Name size</label><input id="nameSize" type="number" min="8" max="200"></div>
+          <div class="fld"><label for="nameFill">Name colour</label><input id="nameFill" type="color"></div>
+        </div>
+        <div class="row2">
+          <div class="fld"><label for="desgSize">Designation size</label><input id="desgSize" type="number" min="8" max="200"></div>
+          <div class="fld"><label for="desgFill">Designation colour</label><input id="desgFill" type="color"></div>
+        </div>
+        <div class="row2">
+          <button class="btn small" type="button" id="addCoverBtn">Add cover box</button>
+          <button class="btn small" type="button" id="delCoverBtn">Remove cover</button>
+        </div>
+        <p class="hint" id="selHint">Click a shape on the artwork to select it. Arrow keys nudge 1px (Shift = 10px).</p>
+        <p class="hint" id="statusHint"></p>
+        <button class="btn small" type="button" id="replaceImgBtn">Replace artwork</button>
+        <input type="file" id="replaceFile" class="hide" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+      </aside>
+    </div>
+  </section>
+  <footer>
+    <span>Every save is checked against the server PIN. Share a layout with <strong>Share link</strong> — employees who open it can only add their photo and name, and their photo never leaves their browser.</span>
+  </footer>
+</div>
+
+<div class="ovl" id="loginOvl">
+  <div class="ovl-card">
+    <h3>Unlock Template Manager</h3>
+    <p id="loginCopy">Enter the admin PIN. It is checked on the server, and every template you add or change needs it.</p>
+    <div class="fld"><label for="pinInput">PIN</label><input id="pinInput" type="password" autocomplete="current-password" inputmode="numeric"></div>
+    <div class="ovl-foot">
+      <a class="btn" href="/">Cancel</a>
+      <button class="btn primary" type="button" id="loginBtn">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<div class="ovl" id="linkOvl">
+  <div class="ovl-card">
+    <h3>Share this layout</h3>
+    <p>Send this link to the people who should use <strong id="linkLabel"></strong>. It opens the studio locked to this one layout — they upload a photo, type their name and designation, and download. They cannot switch layouts or move anything.</p>
+    <div class="fld"><label for="linkInput">Public link</label><input id="linkInput" readonly onfocus="this.select()"></div>
+    <p class="hint" id="linkWarn"></p>
+    <div class="ovl-foot">
+      <button class="btn" type="button" id="linkOpenBtn">Open</button>
+      <button class="btn" type="button" id="linkCloseBtn">Close</button>
+      <button class="btn primary" type="button" id="linkCopyBtn">Copy link</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="js/ics.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let storageMode = "local";
+let adminKey = "";
+let templates = [];
+let view = "list";
+let draft = null;
+let selected = "ellipse";
+let circleLock = true;
+let sampleOn = true;
+let drag = null;
+let samplePhoto = ICS.makePhoto(ICS.sampleSilhouette(400));
+
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3400);
+}
+function showBanner(text){
+  if (!text) { $("banner").classList.add("hide"); return; }
+  $("bannerText").textContent = text;
+  $("banner").classList.remove("hide");
+}
+
+async function refreshCatalog(){
+  const cat = await ICS.loadCatalog();
+  templates = cat.templates;
+  if (storageMode === "live" && !cat.api) {
+    storageMode = "local";
+    showBanner(LOCAL_WARNING);
+  }
+  renderList();
+}
+
+const PIN_KEY = "ics.adminPin";
+const LOCAL_WARNING = "Server saving is off — Vercel Blob or ADMIN_PIN is not set. Layouts stay in this browser, and the links you generate will not open for anyone else.";
+
+function showLogin(){
+  $("loginOvl").classList.add("show");
+  $("pinInput").value = "";
+  setTimeout(() => $("pinInput").focus(), 50);
+}
+function hideLogin(){
+  $("loginOvl").classList.remove("show");
+  $("pinInput").value = "";
+}
+
+/* The PIN is verified by the server, not here — the browser only holds it for
+   the tab so every later write can present it. */
+async function tryPin(pin){
+  const res = await ICS.api.login(pin);
+  if (res.mode === "denied") {
+    try { sessionStorage.removeItem(PIN_KEY); } catch (e) {}
+    return false;
+  }
+  adminKey = pin;
+  storageMode = res.mode === "live" ? "live" : "local";
+  if (storageMode === "live") {
+    try { sessionStorage.setItem(PIN_KEY, pin); } catch (e) {}
+  }
+  return true;
+}
+
+async function afterUnlock(){
+  showBanner(storageMode === "live" ? "" : LOCAL_WARNING);
+  await refreshCatalog();
+}
+
+/* The link an employee receives. Everything they can do is scoped to this id. */
+function shareLink(id, label){
+  $("linkLabel").textContent = label;
+  $("linkInput").value = ICS.publicLink(id);
+  $("linkWarn").textContent = storageMode === "live"
+    ? "Anyone with this link can use the layout. It does not let them edit it."
+    : LOCAL_WARNING;
+  $("linkOvl").classList.add("show");
+  $("linkInput").focus();
+}
+
+function sourceLabel(t){
+  if (t.source === "remote") return "Live";
+  if (t.source === "local") return "This browser";
+  return "Built-in";
+}
+
+function renderList(){
+  const grid = $("grid");
+  grid.textContent = "";
+  $("countLabel").textContent = templates.length ? templates.length + " layout(s)" : "";
+  templates.forEach((t) => {
+    const card = document.createElement("article");
+    card.className = "tcard";
+    const img = document.createElement("img");
+    img.alt = "";
+    img.src = t.imageUrl;
+    const body = document.createElement("div");
+    body.className = "tcard-body";
+    const name = document.createElement("div");
+    name.className = "tcard-name";
+    name.textContent = t.label;
+    const meta = document.createElement("div");
+    meta.className = "tcard-meta";
+    meta.textContent = sourceLabel(t);
+    const actions = document.createElement("div");
+    actions.className = "tcard-actions";
+    const share = document.createElement("button");
+    share.className = "btn small primary";
+    share.type = "button";
+    share.textContent = "Share link";
+    share.onclick = () => shareLink(t.id, t.label);
+    actions.appendChild(share);
+    const edit = document.createElement("button");
+    edit.className = "btn small";
+    edit.type = "button";
+    edit.textContent = "Edit positions";
+    edit.onclick = () => openEditor(t);
+    actions.appendChild(edit);
+    if (t.source !== "builtin") {
+      const del = document.createElement("button");
+      del.className = "btn small danger";
+      del.type = "button";
+      del.textContent = t.source === "remote" && ["doctor","employee"].includes(t.id) ? "Reset built-in" : "Delete";
+      del.onclick = () => removeTemplate(t);
+      actions.appendChild(del);
+    }
+    body.append(name, meta, actions);
+    card.append(img, body);
+    grid.appendChild(card);
+  });
+}
+
+function showList(){
+  view = "list";
+  draft = null;
+  $("listView").classList.remove("hide");
+  $("editView").classList.add("hide");
+  $("newDrop").classList.add("hide");
+}
+
+async function openEditor(t){
+  let img;
+  try { img = await ICS.loadImage(t.imageUrl); }
+  catch (e) { toast("That artwork failed to load."); return; }
+  draft = {
+    id: t.id,
+    label: t.label,
+    builtin: !!t.builtin,
+    source: t.source,
+    image: img,
+    imageDataUrl: null,
+    imageBlob: null,
+    keepImageUrl: ICS.isBuiltinPath(t.imageUrl) ? t.imageUrl : "",
+    plate: ICS.normalizePlate(t.plate, img.width, img.height),
+    isNew: false
+  };
+  selected = "ellipse";
+  enterEditor();
+}
+
+async function openNewFromFile(file){
+  let prepared;
+  try { prepared = await ICS.prepareUpload(file); }
+  catch (e) { toast(e.message || "That file could not be used."); return; }
+  const img = await ICS.loadImage(prepared.dataUrl);
+  draft = {
+    id: ICS.newTemplateId(),
+    label: file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "New layout",
+    builtin: false,
+    source: storageMode === "live" ? "remote" : "local",
+    image: img,
+    imageDataUrl: prepared.dataUrl,
+    imageBlob: prepared.blob,
+    keepImageUrl: "",
+    plate: ICS.defaultPlate(img.width, img.height),
+    isNew: true
+  };
+  selected = "ellipse";
+  enterEditor();
+}
+
+function enterEditor(){
+  view = "edit";
+  $("listView").classList.add("hide");
+  $("editView").classList.remove("hide");
+  $("editTitle").textContent = draft.isNew ? "Place photo & name" : "Edit positions";
+  $("labelInput").value = draft.label;
+  $("alignSel").value = draft.plate.align;
+  $("nameSize").value = Math.round(draft.plate.name.size);
+  $("desgSize").value = Math.round(draft.plate.desg.size);
+  $("nameFill").value = toColor(draft.plate.name.fill);
+  $("desgFill").value = toColor(draft.plate.desg.fill);
+  $("locToggle").checked = !!draft.plate.loc;
+  $("circleLock").checked = circleLock;
+  $("sampleToggle").checked = sampleOn;
+  renderEditor();
+}
+
+function toColor(hex){
+  hex = String(hex || "#E10A1D");
+  if (/^#[0-9a-f]{3}$/i.test(hex)) {
+    return "#" + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+  }
+  return /^#[0-9a-f]{6}$/i.test(hex) ? hex : "#E10A1D";
+}
+
+function syncPlateFromForm(){
+  if (!draft) return;
+  draft.label = $("labelInput").value.trim() || draft.label;
+  draft.plate.align = $("alignSel").value === "center" ? "center" : "left";
+  draft.plate.name.size = ICS.clamp(Number($("nameSize").value) || draft.plate.name.size, 8, 200);
+  draft.plate.desg.size = ICS.clamp(Number($("desgSize").value) || draft.plate.desg.size, 8, 200);
+  draft.plate.name.fill = $("nameFill").value;
+  draft.plate.desg.fill = $("desgFill").value;
+  if ($("locToggle").checked) {
+    if (!draft.plate.loc) {
+      draft.plate.loc = {
+        baseline: draft.plate.desg.baseline + 36,
+        size: 24, weight: 500, fill: "#163B66",
+        font: ICS.DEFAULT_FONT, prefix: ""
+      };
+    }
+  } else delete draft.plate.loc;
+  const paper = ICS.derivePaper(draft.plate, draft.image.width, draft.image.height);
+  draft.plate.paperY = paper.paperY;
+  draft.plate.paperMaxX = paper.paperMaxX;
+  draft.plate = ICS.normalizePlate(draft.plate, draft.image.width, draft.image.height);
+}
+
+function nativeFromEvent(e){
+  const r = $("stage").getBoundingClientRect();
+  const img = draft.image;
+  return {
+    x: (e.clientX - r.left) * (img.width / r.width),
+    y: (e.clientY - r.top) * (img.height / r.height)
+  };
+}
+function handleR(){
+  const r = $("stage").getBoundingClientRect();
+  return 10 * (draft.image.width / r.width);
+}
+function textBox(kind){
+  const p = draft.plate;
+  const spec = p[kind];
+  const h = spec.size * 1.25;
+  const y0 = spec.baseline - spec.size;
+  const y1 = spec.baseline + spec.size * 0.25;
+  if (p.align === "center") return { x0: p.textX - p.maxW / 2, y0, x1: p.textX + p.maxW / 2, y1, h };
+  return { x0: p.textX, y0, x1: p.textX + p.maxW, y1, h };
+}
+function inRect(x, y, b, pad){
+  pad = pad || 0;
+  return x >= b.x0 - pad && x <= b.x1 + pad && y >= b.y0 - pad && y <= b.y1 + pad;
+}
+function handleHits(b, x, y, r){
+  const pts = [
+    { k: "nw", x: b.x0, y: b.y0 }, { k: "n", x: (b.x0 + b.x1) / 2, y: b.y0 },
+    { k: "ne", x: b.x1, y: b.y0 }, { k: "e", x: b.x1, y: (b.y0 + b.y1) / 2 },
+    { k: "se", x: b.x1, y: b.y1 }, { k: "s", x: (b.x0 + b.x1) / 2, y: b.y1 },
+    { k: "sw", x: b.x0, y: b.y1 }, { k: "w", x: b.x0, y: (b.y0 + b.y1) / 2 }
+  ];
+  for (const p of pts) {
+    if (Math.hypot(x - p.x, y - p.y) <= r) return p.k;
+  }
+  return null;
+}
+function hitTest(x, y){
+  const p = draft.plate;
+  const r = handleR();
+  const ell = { x0: p.ellipse[0], y0: p.ellipse[1], x1: p.ellipse[2], y1: p.ellipse[3] };
+  const covers = (p.textCover || []).map((c, i) => ({ i, b: { x0: c.box[0], y0: c.box[1], x1: c.box[2], y1: c.box[3] } }));
+  for (let i = covers.length - 1; i >= 0; i--) {
+    const h = handleHits(covers[i].b, x, y, r);
+    if (h) return { kind: "cover", index: covers[i].i, handle: h };
+  }
+  const kinds = p.loc ? ["loc", "desg", "name"] : ["desg", "name"];
+  for (const kind of kinds) {
+    const b = textBox(kind);
+    const h = handleHits(b, x, y, r);
+    if (h) return { kind, handle: h };
+    if (inRect(x, y, b, 4)) return { kind, handle: "body" };
+  }
+  for (let i = covers.length - 1; i >= 0; i--) {
+    if (inRect(x, y, covers[i].b, 0)) return { kind: "cover", index: covers[i].i, handle: "body" };
+  }
+  const eh = handleHits(ell, x, y, r);
+  if (eh) return { kind: "ellipse", handle: eh };
+  const cx = (ell.x0 + ell.x1) / 2, cy = (ell.y0 + ell.y1) / 2;
+  const rx = (ell.x1 - ell.x0) / 2, ry = (ell.y1 - ell.y0) / 2;
+  if (rx > 0 && ry > 0 && ((x - cx) * (x - cx)) / (rx * rx) + ((y - cy) * (y - cy)) / (ry * ry) <= 1.08) {
+    return { kind: "ellipse", handle: "body" };
+  }
+  return null;
+}
+
+function resizeRect(b, handle, x, y, start, min){
+  min = min || 16;
+  let { x0, y0, x1, y1 } = b;
+  if (handle.indexOf("n") !== -1) y0 = Math.min(y1 - min, y);
+  if (handle.indexOf("s") !== -1) y1 = Math.max(y0 + min, y);
+  if (handle.indexOf("w") !== -1) x0 = Math.min(x1 - min, x);
+  if (handle.indexOf("e") !== -1) x1 = Math.max(x0 + min, x);
+  return { x0, y0, x1, y1 };
+}
+
+function applyDrag(e){
+  if (!drag || !draft) return;
+  const pt = nativeFromEvent(e);
+  const p = draft.plate;
+  const dx = pt.x - drag.x;
+  const dy = pt.y - drag.y;
+  if (drag.kind === "ellipse") {
+    let b = { x0: drag.box.x0, y0: drag.box.y0, x1: drag.box.x1, y1: drag.box.y1 };
+    if (drag.handle === "body") {
+      b.x0 += dx; b.x1 += dx; b.y0 += dy; b.y1 += dy;
+    } else if (circleLock) {
+      const cx = (drag.box.x0 + drag.box.x1) / 2;
+      const cy = (drag.box.y0 + drag.box.y1) / 2;
+      const rad = Math.max(16, Math.hypot(pt.x - cx, pt.y - cy));
+      b = { x0: cx - rad, y0: cy - rad, x1: cx + rad, y1: cy + rad };
+    } else {
+      b = resizeRect(b, drag.handle, pt.x, pt.y, drag, 16);
+    }
+    p.ellipse = [b.x0, b.y0, b.x1, b.y1];
+  } else if (drag.kind === "cover") {
+    const c = p.textCover[drag.index];
+    let b = { x0: drag.box.x0, y0: drag.box.y0, x1: drag.box.x1, y1: drag.box.y1 };
+    if (drag.handle === "body") { b.x0 += dx; b.x1 += dx; b.y0 += dy; b.y1 += dy; }
+    else b = resizeRect(b, drag.handle, pt.x, pt.y, drag, 8);
+    c.box = [b.x0, b.y0, b.x1, b.y1];
+  } else {
+    const spec = p[drag.kind];
+    if (drag.handle === "e" || drag.handle === "w") {
+      p.maxW = Math.max(20, drag.maxW + (drag.handle === "e" ? dx : -dx) * (p.align === "center" ? 2 : 1));
+    } else {
+      spec.baseline = drag.baseline + dy;
+      if (p.align === "center") p.textX = drag.textX + dx;
+      else p.textX = drag.textX + dx;
+    }
+  }
+  draft.plate = ICS.normalizePlate(p, draft.image.width, draft.image.height);
+  renderEditor();
+}
+
+function renderEditor(){
+  if (!draft) return;
+  const stage = $("stage");
+  const img = draft.image;
+  const cssW = Math.min(480, stage.parentElement.clientWidth - 24);
+  stage.width = Math.round(cssW);
+  stage.height = Math.round(cssW * img.height / img.width);
+  const ctx = stage.getContext("2d");
+  ctx.clearRect(0, 0, stage.width, stage.height);
+  const punched = ICS.punchHole(img, draft.plate.ellipse, draft.plate.holeInset);
+  const person = sampleOn ? {
+    name: "Dr. Sample Name",
+    desg: "Consultant",
+    loc: draft.plate.loc ? "Kolkata" : "",
+    photo: samplePhoto
+  } : { name: "", desg: "", loc: "", photo: null };
+  ICS.drawCreative(ctx, stage.width, person, img, punched, draft.plate);
+  const s = stage.width / img.width;
+  const p = draft.plate;
+  ctx.save();
+  ctx.lineWidth = 1.5;
+  function drawBox(b, stroke, fill, active){
+    ctx.strokeStyle = stroke;
+    ctx.fillStyle = fill;
+    ctx.setLineDash(active ? [] : [6, 4]);
+    ctx.strokeRect(b.x0 * s, b.y0 * s, (b.x1 - b.x0) * s, (b.y1 - b.y0) * s);
+    ctx.setLineDash([]);
+    if (active) {
+      const hs = [{x:b.x0,y:b.y0},{x:(b.x0+b.x1)/2,y:b.y0},{x:b.x1,y:b.y0},{x:b.x1,y:(b.y0+b.y1)/2},{x:b.x1,y:b.y1},{x:(b.x0+b.x1)/2,y:b.y1},{x:b.x0,y:b.y1},{x:b.x0,y:(b.y0+b.y1)/2}];
+      hs.forEach((h) => {
+        ctx.fillRect(h.x * s - 4, h.y * s - 4, 8, 8);
+        ctx.strokeRect(h.x * s - 4, h.y * s - 4, 8, 8);
+      });
+    }
+  }
+  const ell = { x0: p.ellipse[0], y0: p.ellipse[1], x1: p.ellipse[2], y1: p.ellipse[3] };
+  ctx.strokeStyle = "#0891b2";
+  ctx.setLineDash(selected === "ellipse" ? [] : [6, 4]);
+  ctx.beginPath();
+  ctx.ellipse(((ell.x0 + ell.x1) / 2) * s, ((ell.y0 + ell.y1) / 2) * s, ((ell.x1 - ell.x0) / 2) * s, ((ell.y1 - ell.y0) / 2) * s, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  if (selected === "ellipse") drawBox(ell, "#0891b2", "#22d3ee", true);
+  (p.textCover || []).forEach((c, i) => {
+    const b = { x0: c.box[0], y0: c.box[1], x1: c.box[2], y1: c.box[3] };
+    drawBox(b, "#b45309", "#fde68a", selected === "cover:" + i);
+  });
+  drawBox(textBox("name"), "#e11d48", "#fda4af", selected === "name");
+  drawBox(textBox("desg"), "#1d4ed8", "#93c5fd", selected === "desg");
+  if (p.loc) drawBox(textBox("loc"), "#15803d", "#86efac", selected === "loc");
+  ctx.restore();
+  $("selHint").textContent =
+    selected === "ellipse" ? "Photo hole selected — drag to move, handles to resize."
+    : selected === "name" ? "Name line selected — drag to move, side handles change max width."
+    : selected === "desg" ? "Designation line selected."
+    : selected === "loc" ? "Location line selected."
+    : selected.indexOf("cover:") === 0 ? "Cover box selected — this wipes printed placeholder text."
+    : "Click a shape on the artwork to select it.";
+  $("statusHint").textContent = draft.image.width + "×" + draft.image.height + " px";
+}
+
+const stage = $("stage");
+stage.addEventListener("pointerdown", (e) => {
+  if (!draft) return;
+  const pt = nativeFromEvent(e);
+  const hit = hitTest(pt.x, pt.y);
+  if (!hit) return;
+  selected = hit.kind === "cover" ? "cover:" + hit.index : hit.kind;
+  const p = draft.plate;
+  let box;
+  if (hit.kind === "ellipse") box = { x0: p.ellipse[0], y0: p.ellipse[1], x1: p.ellipse[2], y1: p.ellipse[3] };
+  else if (hit.kind === "cover") {
+    const c = p.textCover[hit.index].box;
+    box = { x0: c[0], y0: c[1], x1: c[2], y1: c[3] };
+  } else box = textBox(hit.kind);
+  drag = {
+    kind: hit.kind, index: hit.index, handle: hit.handle,
+    x: pt.x, y: pt.y, box, maxW: p.maxW, textX: p.textX,
+    baseline: hit.kind !== "ellipse" && hit.kind !== "cover" ? p[hit.kind].baseline : 0
+  };
+  stage.setPointerCapture(e.pointerId);
+  stage.classList.add("dragging");
+  renderEditor();
+});
+stage.addEventListener("pointermove", (e) => { if (drag) applyDrag(e); });
+["pointerup","pointercancel"].forEach((ev) => stage.addEventListener(ev, () => {
+  drag = null; stage.classList.remove("dragging");
+}));
+
+document.addEventListener("keydown", (e) => {
+  if (view !== "edit" || !draft) return;
+  if (e.key === "Escape") { showList(); return; }
+  const step = e.shiftKey ? 10 : 1;
+  let dx = 0, dy = 0;
+  if (e.key === "ArrowLeft") dx = -step;
+  else if (e.key === "ArrowRight") dx = step;
+  else if (e.key === "ArrowUp") dy = -step;
+  else if (e.key === "ArrowDown") dy = step;
+  else return;
+  e.preventDefault();
+  const p = draft.plate;
+  if (selected === "ellipse") {
+    p.ellipse = [p.ellipse[0] + dx, p.ellipse[1] + dy, p.ellipse[2] + dx, p.ellipse[3] + dy];
+  } else if (selected.indexOf("cover:") === 0) {
+    const i = Number(selected.slice(6));
+    const b = p.textCover[i].box;
+    p.textCover[i].box = [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy];
+  } else if (p[selected]) {
+    p[selected].baseline += dy;
+    p.textX += dx;
+  }
+  draft.plate = ICS.normalizePlate(p, draft.image.width, draft.image.height);
+  renderEditor();
+});
+
+["labelInput","alignSel","nameSize","desgSize","nameFill","desgFill","locToggle"].forEach((id) => {
+  $(id).addEventListener("input", () => { syncPlateFromForm(); renderEditor(); });
+  $(id).addEventListener("change", () => { syncPlateFromForm(); renderEditor(); });
+});
+$("circleLock").onchange = () => { circleLock = $("circleLock").checked; };
+$("sampleToggle").onchange = () => { sampleOn = $("sampleToggle").checked; renderEditor(); };
+$("addCoverBtn").onclick = () => {
+  if (!draft) return;
+  const p = draft.plate;
+  const y = (p.textCover[p.textCover.length - 1] ? p.textCover[p.textCover.length - 1].box[3] : p.name.baseline) + 8;
+  p.textCover.push({ box: [p.textX, y, p.textX + p.maxW, y + 36] });
+  selected = "cover:" + (p.textCover.length - 1);
+  syncPlateFromForm(); renderEditor();
+};
+$("delCoverBtn").onclick = () => {
+  if (!draft || selected.indexOf("cover:") !== 0) { toast("Select a cover box first."); return; }
+  const i = Number(selected.slice(6));
+  draft.plate.textCover.splice(i, 1);
+  selected = "ellipse";
+  syncPlateFromForm(); renderEditor();
+};
+$("backBtn").onclick = () => showList();
+$("newBtn").onclick = () => $("newDrop").classList.toggle("hide");
+$("replaceImgBtn").onclick = () => $("replaceFile").click();
+$("replaceFile").onchange = async (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!f || !draft) return;
+  try {
+    const prepared = await ICS.prepareUpload(f);
+    draft.image = await ICS.loadImage(prepared.dataUrl);
+    draft.imageDataUrl = prepared.dataUrl;
+    draft.imageBlob = prepared.blob;
+    draft.keepImageUrl = "";
+    draft.plate = ICS.normalizePlate(draft.plate, draft.image.width, draft.image.height);
+    renderEditor();
+  } catch (err) { toast(err.message || "Could not replace artwork."); }
+};
+
+function wireDrop(el, input){
+  el.addEventListener("dragover", (e) => { e.preventDefault(); el.classList.add("over"); });
+  el.addEventListener("dragleave", () => el.classList.remove("over"));
+  el.addEventListener("drop", (e) => {
+    e.preventDefault(); el.classList.remove("over");
+    if (e.dataTransfer.files[0]) openNewFromFile(e.dataTransfer.files[0]);
+  });
+  input.addEventListener("change", (e) => {
+    if (e.target.files[0]) openNewFromFile(e.target.files[0]);
+    e.target.value = "";
+  });
+}
+wireDrop($("newDrop"), $("newFile"));
+
+async function saveDraft(){
+  if (!draft) return;
+  syncPlateFromForm();
+  if (!draft.label.trim()) { toast("Give the layout a name."); return; }
+  const btn = $("saveBtn");
+  const wasNew = draft.isNew;
+  btn.disabled = true;
+  try {
+    const plate = ICS.plateDto(draft.plate);
+    if (storageMode === "live") {
+      const payload = { label: draft.label.trim(), plate };
+      if (draft.imageDataUrl) payload.imageBase64 = draft.imageDataUrl;
+      else if (draft.keepImageUrl) payload.imageUrl = draft.keepImageUrl;
+      const res = draft.isNew
+        ? await ICS.api.create(payload, adminKey)
+        : await ICS.api.update(draft.id, payload, adminKey);
+      if (res.status === 401) {
+        try { sessionStorage.removeItem(PIN_KEY); } catch (e) {}
+        adminKey = "";
+        toast("The PIN was rejected — unlock again.");
+        showLogin();
+        return;
+      }
+      if (!res.ok) {
+        toast((res.body && res.body.error && res.body.error.message) || "Save failed.");
+        return;
+      }
+      if (res.body && res.body.template && res.body.template.id) {
+        draft.id = res.body.template.id;
+        draft.isNew = false;
+        draft.source = "remote";
+      }
+      toast("Saved — everyone will see this layout after a refresh.");
+    } else {
+      await ICS.saveLocal({
+        id: draft.id,
+        label: draft.label.trim(),
+        plate,
+        imageBlob: draft.imageBlob || null,
+        keepImageUrl: draft.keepImageUrl
+      });
+      draft.isNew = false;
+      toast("Saved on this browser. Configure Vercel Blob to share it with everyone.");
+    }
+    const savedId = draft.id, savedLabel = draft.label.trim();
+    await refreshCatalog();
+    showList();
+    if (wasNew) shareLink(savedId, savedLabel);
+  } catch (e) {
+    toast("Save failed — try again.");
+  } finally {
+    btn.disabled = false;
+  }
+}
+$("saveBtn").onclick = saveDraft;
+
+async function removeTemplate(t){
+  const ok = confirm(t.source === "remote" && ["doctor","employee"].includes(t.id)
+    ? "Reset this built-in layout to the original positions?"
+    : "Delete “" + t.label + "”? This cannot be undone.");
+  if (!ok) return;
+  try {
+    if (storageMode === "live" && t.source === "remote") {
+      const res = await ICS.api.remove(t.id, adminKey);
+      if (res.status === 401) {
+        try { sessionStorage.removeItem(PIN_KEY); } catch (e) {}
+        adminKey = "";
+        toast("The PIN was rejected — unlock again.");
+        showLogin();
+        return;
+      }
+      if (!res.ok) { toast((res.body && res.body.error && res.body.error.message) || "Delete failed."); return; }
+    } else {
+      await ICS.idb.remove(t.id);
+    }
+    await refreshCatalog();
+    toast("Removed.");
+  } catch (e) { toast("Could not remove that template."); }
+}
+
+window.addEventListener("resize", () => { if (view === "edit") renderEditor(); });
+
+$("loginBtn").onclick = async () => {
+  const pin = $("pinInput").value.trim();
+  if (!pin) { toast("Enter the PIN."); return; }
+  const btn = $("loginBtn");
+  btn.disabled = true;
+  try {
+    if (!(await tryPin(pin))) {
+      toast("Wrong PIN.");
+      $("pinInput").value = "";
+      $("pinInput").focus();
+      return;
+    }
+    hideLogin();
+    await afterUnlock();
+  } catch (e) {
+    toast("Could not reach the server — try again.");
+  } finally {
+    btn.disabled = false;
+  }
+};
+$("pinInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); $("loginBtn").click(); }
+});
+
+$("linkCloseBtn").onclick = () => $("linkOvl").classList.remove("show");
+$("linkOpenBtn").onclick = () => window.open($("linkInput").value, "_blank", "noopener");
+$("linkCopyBtn").onclick = async () => {
+  const input = $("linkInput");
+  try {
+    await navigator.clipboard.writeText(input.value);
+  } catch (e) {
+    input.select();
+    try { document.execCommand("copy"); } catch (e2) { toast("Copy it by hand — Ctrl+C."); return; }
+  }
+  toast("Link copied.");
+};
+
+(async function init(){
+  let saved = "";
+  try { saved = sessionStorage.getItem(PIN_KEY) || ""; } catch (e) {}
+  if (saved) {
+    try {
+      if (await tryPin(saved)) { hideLogin(); await afterUnlock(); return; }
+    } catch (e) { /* fall through to the PIN prompt */ }
+  }
+  showLogin();
+})();
+</script>
+</body>
+</html>

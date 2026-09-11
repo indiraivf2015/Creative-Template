@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- The page is served at /t/<id>, so every relative asset and fetch must
+     resolve from the site root, not from /t/. -->
+<base href="/">
 <title>Ganesh Chaturthi · Creative Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="js/ics.js"></script>
 <style>
   :root{
     --bg:#FFFFFF; --surface:#FFFFFF; --border:#E5E5E5; --border-strong:#C8C8C8;
@@ -90,7 +94,8 @@
   .card.drop:hover{border-color:var(--border-strong);}
   .card.drop.over{border-color:var(--accent); background:var(--accent-soft);}
   .card.drop:focus-within{border-color:var(--accent);}
-  #photoCard{flex:1 1 420px; border-color:var(--accent);}
+  #tplCard{flex:1 1 320px; border-color:var(--gold);}
+  #photoCard{flex:1 1 360px; border-color:var(--accent);}
   .card-split{width:1px; align-self:stretch; background:var(--border); flex:none; margin:0 4px;}
   .layout-fld{min-width:220px; flex:0 0 240px;}
   .layout-fld label{font-weight:700; color:var(--text); font-size:12px;}
@@ -100,9 +105,10 @@
   .c-name{font-weight:500; font-size:13px;}
   .c-meta{font-size:12px; color:var(--text-2);}
   .card input[type=file]{display:none;}
-  #photoCard{flex-wrap:wrap;}
-  .photo-pick{cursor:pointer; min-width:0; flex:1 1 160px;}
-  .photo-pick .c-name{font-weight:700;}
+  #tplCard,#photoCard{flex-wrap:wrap;}
+  .photo-pick,.tpl-pick{cursor:pointer; min-width:0; flex:1 1 160px;}
+  .photo-pick .c-name,.tpl-pick .c-name{font-weight:700;}
+  .tpl-adjust{margin-left:auto;}
   .card.actions{flex:0 0 auto; gap:8px; flex-wrap:wrap; margin-left:auto;}
   .card.actions .btn{white-space:nowrap;}
   .card.fields{
@@ -177,7 +183,8 @@
   #layoutSelect:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 1px var(--accent);}
   .ed-body{padding:16px; display:flex; gap:20px; flex-wrap:wrap; justify-content:center;}
   #stage{border:1px solid var(--border); border-radius:var(--r-card); width:100%; max-width:400px; height:auto; touch-action:none; cursor:grab; background:#fff;}
-  #stage.dragging{cursor:grabbing;}
+  #stage.placing{cursor:move;}
+  #stage.placing.dragging{cursor:grabbing;}
   .side{width:240px; display:flex; flex-direction:column; gap:14px;}
   .ctl label{font-size:12px; color:var(--text-2); display:flex; justify-content:space-between;}
   .ctl input[type=range]{width:100%; accent-color:var(--accent);}
@@ -213,8 +220,8 @@
     .hd-title{font-size:13px; line-height:1.35; min-width:0;}
     .hd-title em{display:block; font-size:22px; line-height:1.15; margin-right:0;}
     .steps{flex-direction:column;}
-    #photoCard,.card.actions,.card.fields{width:100%; margin-left:0;}
-    #photoCard{
+    #tplCard,#photoCard,.card.actions,.card.fields{width:100%; margin-left:0;}
+    #tplCard,#photoCard{
       display:grid;
       grid-template-columns:22px 1fr;
       align-items:start;
@@ -225,11 +232,11 @@
       min-height:0;
       flex-wrap:nowrap;
     }
-    #photoCard .num{grid-column:1; grid-row:1; margin-top:2px;}
-    #photoCard .photo-pick{grid-column:2; grid-row:1; flex:none; width:auto;}
-    #photoCard .card-split,
-    #photoCard input[type=file]{display:none;}
-    #photoCard .layout-fld{
+    #tplCard .num,#photoCard .num{grid-column:1; grid-row:1; margin-top:2px;}
+    #tplCard .tpl-pick,#photoCard .photo-pick{grid-column:2; grid-row:1; flex:none; width:auto;}
+    #tplCard .card-split,#photoCard .card-split,
+    #tplCard input[type=file],#photoCard input[type=file]{display:none;}
+    #tplCard .layout-fld{
       grid-column:2;
       grid-row:2;
       flex:none;
@@ -237,7 +244,8 @@
       min-width:0;
       margin-top:4px;
     }
-    #photoCard .layout-fld select{width:100%; min-width:0;}
+    #tplCard .layout-fld select{width:100%; min-width:0;}
+    #tplCard .tpl-adjust{grid-column:2; grid-row:3; margin-left:0;}
     .card.fields{align-items:flex-start;}
     .card.fields .num{margin-top:22px;}
     .fields-stack{
@@ -258,7 +266,7 @@
     <div class="hd-mark" aria-hidden="true">
       <img src="templates/header-ganesh.png" alt="">
     </div>
-    <div class="hd-title"><em>Ganesh Chaturthi</em> Creative Studio <span>· Indira IVF</span></div>
+    <div class="hd-title"><em>Ganesh Chaturthi</em> Creative Studio <span id="hdLayout">· Indira IVF</span></div>
   </div>
   <div class="festive-bar"></div>
 </header>
@@ -271,7 +279,7 @@
   <aside class="must" aria-label="Mandatory steps">
     <p class="must-title">Mandatory steps · Create your Ganesh Chaturthi creative</p>
     <ol class="must-list">
-      <li><strong>Step 1:</strong> Upload your photo.</li>
+      <li><strong>Step 1:</strong> Upload your <strong>photo</strong>.</li>
       <li><strong>Step 2:</strong> Write your <strong>Name</strong> and <strong>Designation</strong>.</li>
       <li><strong>Step 3:</strong> Download the image.</li>
     </ol>
@@ -300,27 +308,19 @@
       <span class="num" id="photoStepNum">1</span>
       <label class="photo-pick" for="photoInput">
         <span class="c-name" id="photoTitle">Upload your photo</span><br>
-        <span class="c-meta" id="photoMeta">JPG · PNG · WEBP · PDF</span>
+        <span class="c-meta" id="photoMeta">Your picture · JPG · PNG · WEBP · PDF</span>
       </label>
       <input type="file" id="photoInput" accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,application/pdf" multiple>
-      <div class="card-split" aria-hidden="true"></div>
-      <div class="fld layout-fld">
-        <label for="layoutSelect">Layout</label>
-        <select id="layoutSelect" aria-label="Choose layout">
-          <option value="doctor">Doctor · Ganesh Chaturthi</option>
-          <option value="employee">Employee · Ganesh Chaturthi</option>
-        </select>
-      </div>
     </div>
 
     <div class="card actions" id="dlCard">
-      <span class="num">3</span>
+      <span class="num" id="dlStepNum">3</span>
       <button class="btn" id="dlBtn" type="button" disabled>Download PNG</button>
       <button class="btn primary" id="zipBtn" type="button" disabled>Download all (ZIP)</button>
     </div>
 
     <div class="card fields" id="fieldsCard">
-      <span class="num">2</span>
+      <span class="num" id="fieldsStepNum">2</span>
       <div class="fields-stack">
         <div class="fld"><label for="nameInput">Name</label><input id="nameInput" placeholder="Full name" autocomplete="off"></div>
         <div class="fld"><label for="desgInput">Designation</label><input id="desgInput" placeholder="Write your designation" autocomplete="off"></div>
@@ -359,7 +359,7 @@
             <input type="range" id="zoomCtl" min="100" max="300" value="100" disabled>
           </div>
           <button class="btn small" id="resetBtn" type="button" disabled>Reset position</button>
-          <p class="hint">Drag the photo inside the circle to reposition it. Scroll over the preview to zoom.</p>
+          <p class="hint" id="dragHint">Drag the photo inside the circle to reposition it. Scroll over the preview to zoom.</p>
           <p class="hint" id="statusHint"></p>
           <div class="mobile-dl" id="dlMobileSlot"></div>
         </div>
@@ -369,7 +369,7 @@
 
   <footer>
     <span id="verLabel"></span>
-    <span>Photos and employee data stay on this device — nothing is uploaded to any server.</span>
+    <span>Photos stay on this device. Templates you upload are available in this browser (and to everyone if live save is configured).</span>
   </footer>
 </div>
 
@@ -389,45 +389,10 @@
 
 <script>
 "use strict";
-const VERSION = 'v5.0 · Ganesh Chaturthi 2026';
-
-const BUILTIN = {
-  employee: 'templates/employee-ganesh.png',
-  doctor: 'templates/doctor-ganesh.png'
-};
-
-// Both Ganesh Chaturthi layouts share one nameplate, so the geometry below is
-// identical. Coordinates are native template pixels (1169 x 1460). The ellipse
-// is the circle drawn by tools/prepare_templates.py; its ring lives just
-// outside the punch, so the photo meets the ring with no seam.
-const PLATE = {
-  baseW: 1169, aspect: 1169 / 1460,
-  ellipse: [46, 925, 288, 1167],
-  holeInset: 0,
-  align: 'left', textX: 369, maxW: 380,
-  name: { baseline: 1042, size: 35, weight: 700, fill: '#E10A1D', font: 'Figtree, Poppins, Arial, sans-serif' },
-  desg: { baseline: 1080, size: 29, weight: 500, fill: '#163B66', font: 'Figtree, Poppins, Arial, sans-serif' },
-  paperY: [985, 1014],
-  paperMaxX: 700,
-  // Wide enough for both layouts: the employee artwork sets "Your Name" and
-  // "Designation" a few pixels left of the doctor one, and a tight box leaves a
-  // ghost of the Y and the D behind.
-  textCover: [
-    { box: [355, 1010, 554, 1049] },
-    { box: [357, 1051, 528, 1093] }
-  ]
-};
-
-const PRESETS = {
-  employee: Object.assign({ label: 'Employee · Ganesh Chaturthi' }, PLATE),
-  doctor: Object.assign({ label: 'Doctor · Ganesh Chaturthi' }, PLATE)
-};
+const VERSION = 'v6.0 · Ganesh Chaturthi 2026';
 
 const EXCEL_ENABLE = false;
-
-// Native template pixels the photo is allowed to run past the punched hole.
-// Must stay inside the printed ring, which starts at the hole's edge.
-const CLIP_BLEED = 1.5;
+let catalogList = [];
 
 let tpl = null;
 let tplRaw = null;
@@ -450,7 +415,13 @@ function fileHasId(fileKey, fileLabel, id){
   const re = new RegExp('(^|[^a-z0-9])' + escapeRe(raw) + '([^a-z0-9]|$)', 'i');
   return re.test(fileKey) || re.test(fileLabel);
 }
-const P = () => PRESETS[geoKey];
+function currentTemplate(){
+  return catalogList.find(t => t.id === geoKey) || catalogList[0] || null;
+}
+const P = () => {
+  const t = currentTemplate();
+  return t ? t.plate : ICS.defaultPlate(1169, 1460);
+};
 const HAS_XLSX = () => typeof XLSX !== 'undefined';
 const HAS_ZIP = () => typeof JSZip !== 'undefined';
 const EMBEDDED = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
@@ -471,34 +442,10 @@ if (PDF_OK){
   catch (e){ PDF_OK = false; }
 }
 
-function readDataURL(file){
-  return new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => res(fr.result);
-    fr.onerror = () => rej(new Error('read failed'));
-    fr.readAsDataURL(file);
-  });
-}
-function loadImage(src){
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => res(img);
-    img.onerror = () => rej(new Error('decode failed'));
-    img.src = src;
-  });
-}
-async function fileToImage(file){
-  try { return await loadImage(await readDataURL(file)); }
-  catch (e){ return await createImageBitmap(file); }
-}
-function downscale(img, max){
-  const k = Math.min(1, (max || 1600) / Math.max(img.width, img.height));
-  if (k === 1) return img;
-  const c = document.createElement('canvas');
-  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-  return c;
-}
+function readDataURL(file){ return ICS.readDataURL(file); }
+function loadImage(src){ return ICS.loadImage(src); }
+async function fileToImage(file){ return ICS.fileToImage(file); }
+function downscale(img, max){ return ICS.downscale(img, max); }
 async function pdfToCanvas(file){
   if (!PDF_OK) throw new Error('PDF support unavailable');
   const doc = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
@@ -515,140 +462,34 @@ async function decodePhoto(file){
   return isPdf ? await pdfToCanvas(file) : downscale(await fileToImage(file), 1600);
 }
 
-function punchHole(img, ellipse, inset){
-  const c = document.createElement('canvas');
-  c.width = img.width; c.height = img.height;
-  const ctx = c.getContext('2d');
-  ctx.drawImage(img, 0, 0);
-  const [x0, y0, x1, y1] = ellipse;
-  const pad = inset == null ? 0 : inset;
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.beginPath();
-  ctx.ellipse((x0 + x1) / 2, (y0 + y1) / 2, Math.max(4, (x1 - x0) / 2 - pad), Math.max(4, (y1 - y0) / 2 - pad), 0, 0, Math.PI * 2);
-  ctx.fill();
-  return c;
+function punchHole(img, ellipse, inset){ return ICS.punchHole(img, ellipse, inset); }
+function contentBox(img){ return ICS.contentBox(img); }
+function makePhoto(src){ return ICS.makePhoto(src); }
+
+/* This page is locked to the one template named in the link. There is no picker
+   and no position editing — both of those live in Template Manager. */
+function showLayoutLabel(){
+  const t = currentTemplate();
+  if (!t) return;
+  if ($('hdLayout')) $('hdLayout').textContent = '· ' + t.label;
+  document.title = t.label + ' · Creative Studio';
 }
 
-function contentBox(img){
-  const w = img.width, h = img.height;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0);
-  const data = ctx.getImageData(0, 0, w, h).data;
-  const cr = data[0], cg = data[1], cb = data[2];
-  let x0 = w, y0 = h, x1 = 0, y1 = 0, n = 0;
-  for (let y = 0; y < h; y += 2){
-    for (let x = 0; x < w; x += 2){
-      const i = (y * w + x) * 4;
-      if (data[i + 3] < 24) continue;
-      if (Math.abs(data[i] - cr) + Math.abs(data[i + 1] - cg) + Math.abs(data[i + 2] - cb) < 30) continue;
-      n++;
-      if (x < x0) x0 = x;
-      if (y < y0) y0 = y;
-      if (x > x1) x1 = x;
-      if (y > y1) y1 = y;
-    }
-  }
-  if (n < 80 || (x1 - x0) < w * 0.28 || (y1 - y0) < h * 0.28) return { x: 0, y: 0, w, h };
-  const padX = Math.round((x1 - x0) * 0.02);
-  const padY = Math.round((y1 - y0) * 0.02);
-  x0 = Math.max(0, x0 - padX);
-  y0 = Math.max(0, y0 - padY);
-  x1 = Math.min(w - 1, x1 + padX);
-  y1 = Math.min(h - 1, y1 + padY);
-  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
-}
-
-function makePhoto(src){
-  return { src, zoom: 1, dx: 0, dy: 0, box: contentBox(src) };
-}
-
-function syncTemplateSelects(){
-  if ($('layoutSelect')) $('layoutSelect').value = geoKey;
-}
-
-function isPaperPx(r, g, b){
-  const avg = (r + g + b) / 3;
-  const sat = Math.max(r, g, b) - Math.min(r, g, b);
-  return avg >= 208 && sat <= 58 && (r - g) < 32 && (r - b) < 58;
-}
-function pickPaper(src, w, h, x, y, paperY0, paperY1, paperMaxX){
-  const xx = Math.max(0, Math.min(w - 1, Math.min(x, paperMaxX)));
-  const span = Math.max(1, paperY1 - paperY0);
-  for (let k = 0; k < span; k++){
-    const sy = paperY0 + ((y + k) % span);
-    if (sy < 0 || sy >= h) continue;
-    const i = (sy * w + xx) * 4;
-    if (isPaperPx(src[i], src[i + 1], src[i + 2]) && (src[i] - src[i + 1]) < 28) return i;
-  }
-  for (let lx = xx - 1; lx >= Math.max(0, xx - 52); lx--){
-    const i = (y * w + lx) * 4;
-    if (isPaperPx(src[i], src[i + 1], src[i + 2])) return i;
-  }
-  return (Math.max(0, paperY0) * w + xx) * 4;
-}
 function coverPlaceholderLines(ctx, orig, covers, filled, paperY, paperMaxX){
-  if (!orig || !covers || !covers.length || !filled.some(Boolean)) return;
-  const w = orig.width, h = orig.height;
-  const tmp = document.createElement('canvas');
-  tmp.width = w; tmp.height = h;
-  const tctx = tmp.getContext('2d', { willReadFrequently: true });
-  tctx.drawImage(orig, 0, 0);
-  const src = tctx.getImageData(0, 0, w, h).data;
-  const dest = ctx.getImageData(0, 0, w, h);
-  const out = dest.data;
-  const band = paperY && paperY.length === 2 ? paperY : [covers[0].box[1] - 14, covers[0].box[1] - 2];
-  const maxX = paperMaxX == null ? w - 1 : paperMaxX;
-  let boxes = [];
-  if (filled.length === covers.length && filled.every(Boolean)){
-    let x0 = w, y0 = h, x1 = 0, y1 = 0;
-    covers.forEach(c => {
-      x0 = Math.min(x0, c.box[0]); y0 = Math.min(y0, c.box[1]);
-      x1 = Math.max(x1, c.box[2]); y1 = Math.max(y1, c.box[3]);
-    });
-    boxes.push([x0, y0, x1, y1]);
-  } else {
-    covers.forEach((c, idx) => { if (filled[idx]) boxes.push(c.box); });
-  }
-  boxes.forEach(box => {
-    let [x0, y0, x1, y1] = box;
-    x0 = Math.max(0, x0); y0 = Math.max(0, y0);
-    x1 = Math.min(w, x1); y1 = Math.min(h, y1);
-    if (x1 - x0 < 2 || y1 - y0 < 2) return;
-    for (let y = y0; y < y1; y++){
-      for (let x = x0; x < x1; x++){
-        const pi = pickPaper(src, w, h, x, y, band[0], band[1], maxX);
-        const i = (y * w + x) * 4;
-        out[i] = src[pi];
-        out[i + 1] = src[pi + 1];
-        out[i + 2] = src[pi + 2];
-      }
-    }
-  });
-  ctx.putImageData(dest, 0, 0);
+  ICS.coverPlaceholderLines(ctx, orig, covers, filled, paperY, paperMaxX);
 }
 
 async function applyLayout(){
-  tplRaw = await loadImage(BUILTIN[geoKey]);
+  const t = currentTemplate();
+  if (!t) throw new Error('no template');
+  tplRaw = await loadImage(t.imageUrl);
   const p = P();
   tplClean = null;
   tpl = punchHole(tplRaw, p.ellipse, p.holeInset == null ? 0 : p.holeInset);
   people.forEach(x => { if (x.photo) { x.photo.dx = 0; x.photo.dy = 0; } });
-  syncTemplateSelects();
+  showLayoutLabel();
   refresh();
 }
-
-async function setTemplate(key){
-  if (key !== 'doctor' && key !== 'employee') return;
-  if (geoKey === key && tplRaw) { syncTemplateSelects(); return; }
-  geoKey = key;
-  store.set('tpl', key);
-  try { await applyLayout(); }
-  catch (e){ toast('The Ganesh Chaturthi template failed to load — refresh the page and try again.'); }
-}
-
-$('layoutSelect').onchange = () => setTemplate($('layoutSelect').value);
 
 $('modeSeg').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -929,73 +770,8 @@ function renderList(){
   });
 }
 
-function fitFont(ctx, text, spec, k, maxW){
-  const fam = spec.font || 'Poppins, Arial, sans-serif';
-  let size = spec.size * k;
-  for (;;){
-    ctx.font = spec.weight + ' ' + size.toFixed(1) + 'px ' + fam;
-    if (ctx.measureText(text).width <= maxW * k || size <= 13 * k) return;
-    size -= 0.5;
-  }
-}
 function drawCreative(ctx, W, person){
-  const p = P();
-  const art = tplRaw || tpl;
-  const artW = art.width, artH = art.height;
-  const native = document.createElement('canvas');
-  native.width = artW;
-  native.height = artH;
-  const nctx = native.getContext('2d');
-  nctx.imageSmoothingEnabled = true;
-  if (nctx.imageSmoothingQuality) nctx.imageSmoothingQuality = 'high';
-
-  if (person && person.photo){
-    const [x0, y0, x1, y1] = p.ellipse;
-    const pw = x1 - x0, ph = y1 - y0;
-    const s = person.photo.src;
-    const box = person.photo.box || { x: 0, y: 0, w: s.width, h: s.height };
-    const cover = Math.max(pw / box.w, ph / box.h) * person.photo.zoom;
-    nctx.save();
-    nctx.beginPath();
-    // Bleed past the punched hole. The clip and the hole are both antialiased,
-    // so matching them exactly leaves each edge pixel partly transparent and a
-    // pale hairline shows between the photo and the printed ring. Letting the
-    // photo run a little wider fills the hole completely; the ring sits outside
-    // the hole and is drawn on top, so it hides the overrun.
-    nctx.ellipse(x0 + pw / 2, y0 + ph / 2, pw / 2 + CLIP_BLEED, ph / 2 + CLIP_BLEED, 0, 0, Math.PI * 2);
-    nctx.clip();
-    nctx.drawImage(
-      s, box.x, box.y, box.w, box.h,
-      x0 + pw / 2 - box.w * cover / 2 + person.photo.dx,
-      y0 + ph / 2 - box.h * cover / 2 + person.photo.dy,
-      box.w * cover, box.h * cover
-    );
-    nctx.restore();
-  }
-
-  nctx.drawImage(person && person.photo ? tpl : (tplRaw || tpl), 0, 0);
-
-  const name = person && person.name.trim();
-  const desg = person && person.desg.trim();
-  const loc = p.loc && person && person.loc.trim();
-  const filled = p.loc ? [!!name, !!desg, !!loc] : [!!name, !!desg];
-  coverPlaceholderLines(nctx, tplRaw, p.textCover || [], filled, p.paperY, p.paperMaxX);
-
-  nctx.textAlign = p.align === 'center' ? 'center' : 'left';
-  nctx.textBaseline = 'alphabetic';
-  const tx = p.textX;
-  if (name){ nctx.fillStyle = p.name.fill; fitFont(nctx, name, p.name, 1, p.maxW); nctx.fillText(name, tx, p.name.baseline); }
-  if (desg){ nctx.fillStyle = p.desg.fill; fitFont(nctx, desg, p.desg, 1, p.maxW); nctx.fillText(desg, tx, p.desg.baseline); }
-  if (loc){
-    const line = p.loc.prefix + loc;
-    nctx.fillStyle = p.loc.fill; fitFont(nctx, line, p.loc, 1, p.maxW);
-    nctx.fillText(line, tx, p.loc.baseline);
-  }
-
-  ctx.imageSmoothingEnabled = true;
-  if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
-  const H = artH * (W / artW);
-  ctx.drawImage(native, 0, 0, W, H);
+  ICS.drawCreative(ctx, W, person, tplRaw, tpl, P());
 }
 
 const stage = $('stage'), sctx = stage.getContext('2d');
@@ -1022,7 +798,9 @@ stage.addEventListener('pointermove', e => {
   p.photo.dy = drag.dy + (e.clientY - drag.y) * k;
   renderPreview();
 });
-['pointerup','pointercancel'].forEach(ev => stage.addEventListener(ev, () => { drag = null; stage.classList.remove('dragging'); }));
+['pointerup','pointercancel'].forEach(ev => stage.addEventListener(ev, () => {
+  drag = null; stage.classList.remove('dragging');
+}));
 stage.addEventListener('wheel', e => {
   const p = people[sel]; if (!p || !p.photo) return;
   e.preventDefault();
@@ -1187,24 +965,57 @@ function placeDownloadActions(){
 }
 window.addEventListener('resize', placeDownloadActions);
 
+/* The template id comes from the link the admin shared: /t/<id>, rewritten to
+   ?t=<id>. Nothing else on this page can change which template is used. */
+function linkedTemplateId(){
+  const q = new URLSearchParams(location.search).get('t');
+  if (q) return q.trim();
+  const m = location.pathname.match(/\/t\/([^/?#]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+function showLinkError(msg){
+  $('main').classList.add('hide');
+  document.querySelectorAll('.steps, .must').forEach(el => el.classList.add('hide'));
+  const b = $('banner');
+  b.classList.remove('hide');
+  b.querySelector('.banner-in').innerHTML =
+    '<span>!</span><span><strong>This link is not valid.</strong> ' + msg + '</span>';
+}
+
 (async function init(){
   $('verLabel').textContent = 'Creative Studio ' + VERSION;
   if (EMBEDDED) $('banner').classList.remove('hide');
-  const saved = store.get('tpl', 'doctor');
-  geoKey = (saved === 'doctor' || saved === 'employee') ? saved : 'doctor';
-  try { await applyLayout(); }
-  catch (e){ toast('The built-in template failed to load — refresh the page and try again.'); }
-  if (!EXCEL_ENABLE){
-    $('modeCard').classList.add('hide');
-    $('sheetCard').classList.add('hide');
-    $('zipBtn').classList.add('hide');
-    $('listPanel').classList.add('hide');
-    if ($('photoStepNum')) $('photoStepNum').textContent = '1';
-    setMode('solo');
-  } else {
-    if ($('photoStepNum')) $('photoStepNum').textContent = '3';
-    setMode(store.get('mode', 'batch'));
+
+  const id = linkedTemplateId();
+  if (!id){
+    location.replace('/');
+    return;
   }
+
+  let t = null;
+  try { t = await ICS.loadOne(id); }
+  catch (e){ t = null; }
+  if (!t){
+    showLinkError('Ask whoever sent it for a fresh campaign link — this one points at a layout that no longer exists.');
+    return;
+  }
+
+  catalogList = [t];
+  geoKey = t.id;
+  try { await applyLayout(); }
+  catch (e){
+    showLinkError('The artwork for this layout could not be loaded. Try again in a moment, or ask for a new link.');
+    return;
+  }
+
+  // Locked to one person, one template — the Excel/ZIP machinery stays off.
+  $('modeCard').classList.add('hide');
+  $('sheetCard').classList.add('hide');
+  $('zipBtn').classList.add('hide');
+  $('listPanel').classList.add('hide');
+  setMode('solo');
+
   placeDownloadActions();
   fontsReady().then(renderPreview);
 })();

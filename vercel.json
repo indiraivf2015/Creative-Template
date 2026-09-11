@@ -1,8 +1,12 @@
 {
   "rewrites": [
     {
-      "source": "/",
-      "destination": "/Indira_Creative_Studio.html"
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/t/:id",
+      "destination": "/Indira_Creative_Studio.html?t=:id"
     }
   ]
 }

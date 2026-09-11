@@ -4,3 +4,7 @@ Thumbs.db
 *.log
 __pycache__/
 sample_data/
+node_modules/
+.env
+.env.local
+.env.production

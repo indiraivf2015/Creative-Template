@@ -1,13 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ganesh Chaturthi · Creative Studio</title>
-  <meta http-equiv="refresh" content="0; url=Indira_Creative_Studio.html">
-  <script>location.replace("Indira_Creative_Studio.html");</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Indira Creative Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Great+Vibes&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FFFFFF; --border:#E5E5E5;
+    --text:#1A1A1A; --text-2:#5A5A5A; --text-3:#8A8A8A;
+    --accent:#E10A1D; --accent-soft:#FEF2F3;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Poppins',system-ui,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    font-size:14px; line-height:1.5;
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  header{background:linear-gradient(180deg,#FFFBF6 0%,#FBF3E8 100%); border-bottom:1px solid var(--border);}
+  .hd-inner{max-width:1280px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .hd-mark{width:26px; height:58px; flex:none; display:flex; align-items:center; justify-content:center;}
+  .hd-mark img{width:26px; height:58px; object-fit:contain; display:block; filter:drop-shadow(0 1px 2px rgba(150,90,20,.28));}
+  .hd-title{font-size:16px; font-weight:600;}
+  .hd-title em{font-family:'Great Vibes',cursive; font-style:normal; font-weight:400; font-size:28px; color:var(--accent); margin-right:6px; line-height:1;}
+  .hd-title span{color:var(--text-3); font-weight:400;}
+  .festive-bar{height:4px; background:linear-gradient(90deg,#E8A13C 0%,#E10A1D 35%,#E8A13C 70%,#E10A1D 100%);}
+
+  main{flex:1; display:flex; align-items:center; justify-content:center; padding:40px 24px;}
+  .note{
+    max-width:520px; width:100%;
+    background:var(--accent-soft); border:1.5px solid var(--accent);
+    border-radius:14px; padding:24px;
+  }
+  .note h1{font-size:19px; font-weight:700; color:var(--accent); margin-bottom:10px;}
+  .note p{font-size:14px; color:var(--text-2); margin-bottom:10px;}
+  .note p:last-of-type{margin-bottom:0;}
+  .note strong{color:var(--text);}
+  .admin{margin-top:18px; padding-top:14px; border-top:1px solid rgba(225,10,29,.22); font-size:12px; color:var(--text-3);}
+  .admin a{color:var(--accent); font-weight:600;}
+  footer{border-top:1px solid var(--border); padding:12px 24px; font-size:12px; color:var(--text-3); text-align:center;}
+</style>
 </head>
 <body>
-  <p><a href="Indira_Creative_Studio.html">Open Creative Studio</a></p>
+
+<header>
+  <div class="hd-inner">
+    <div class="hd-mark" aria-hidden="true"><img src="/templates/header-ganesh.png" alt=""></div>
+    <div class="hd-title"><em>Indira</em> Creative Studio <span>· Indira IVF</span></div>
+  </div>
+  <div class="festive-bar"></div>
+</header>
+
+<main>
+  <section class="note">
+    <h1>You need a campaign link</h1>
+    <p>This studio opens from a link for one specific campaign layout — something like
+      <strong>&hellip;/t/t-9f2a4c8b</strong>. That link is what tells the studio which
+      artwork to put your photo and name on.</p>
+    <p>Check the message your team shared it in, or ask whoever runs the campaign to send it again.</p>
+    <p class="admin">Run campaigns? <a href="/admin">Open Template Manager</a> to upload artwork, place the photo and name, and generate a link.</p>
+  </section>
+</main>
+
+<footer>Indira IVF · Creative Studio</footer>
+
 </body>
 </html>
